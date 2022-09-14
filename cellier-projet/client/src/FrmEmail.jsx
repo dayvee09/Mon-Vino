@@ -16,6 +16,7 @@ import {
 } from "react-router-dom";
 
 export default function FrmEmail({
+  username,
   setEmailUtilisateur,
   emailUtilisateur,
   NouvelEmailUtilisateur,
@@ -118,14 +119,16 @@ export default function FrmEmail({
     });
     if (result === "SUCCESS") {
       console.log(NouvelEmailUtilisateur);
+      console.log(username);
       let reponse = await fetch(
         URI + "/" + "email" + "/" + emailUtilisateur + "/" + "utilisateurs",
         {
           method: "PATCH",
-          body: JSON.stringify({ email: NouvelEmailUtilisateur }),
+          body: JSON.stringify({email: NouvelEmailUtilisateur}),
         }
       );
       let reponseJson = await reponse.json();
+      console.log(reponseJson);
       setEmailUtilisateur(NouvelEmailUtilisateur)
       fetchUtilisateur();
       navigate(`/profil/${NouvelEmailUtilisateur}`, { replace: true })
