@@ -41,10 +41,8 @@ cp "$API/config.local.example.php" "$OUT/api-php/"
 # React static build
 rsync -a "$CLIENT/build/" "$OUT/www/"
 
-# Database: prefer personal dump for your server, else generic starter
-if [ -f "$DB/pw2_le_bon.sql" ]; then
-  cp "$DB/pw2_le_bon.sql" "$OUT/database/"
-elif [ -f "$DB/monvino-starter.sql" ]; then
+# Public starter schema only (never ship personal dumps)
+if [ -f "$DB/monvino-starter.sql" ]; then
   cp "$DB/monvino-starter.sql" "$OUT/database/"
 else
   echo "Warning: no SQL dump in $DB — import schema manually on the server."
@@ -60,7 +58,7 @@ Mon Vino — production bundle
 1. Upload this folder to your server (e.g. /var/www/monvino).
 2. Follow docs/DEPLOYMENT.md on the server.
 3. Create api-php/config.local.php from config.local.example.php.
-4. Import database/*.sql into MySQL/MariaDB if included (pw2_le_bon.sql or monvino-starter.sql).
+4. Import database/monvino-starter.sql into MySQL/MariaDB.
 5. Point the web root at www/ and route /api-php to api-php/index.php.
 
 Secrets are NOT included in this archive by design.

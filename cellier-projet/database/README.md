@@ -1,11 +1,12 @@
 # Base de données Mon Vino
 
-## Fichiers
+## Fichier versionné
 
-| Fichier | Versionné Git | Usage |
-|---------|---------------|--------|
-| `monvino-starter.sql` | Oui | Schéma + données de démo génériques pour nouveaux contributeurs |
-| `pw2_le_bon.sql` | Non (local) | Votre dump personnel / production — ne pas pousser sur GitHub |
+| Fichier | Usage |
+|---------|--------|
+| `monvino-starter.sql` | Schéma + données de démo génériques pour nouveaux contributeurs |
+
+Tout autre fichier `.sql` dans ce dossier est **ignoré par Git** (dumps personnels / production). Ne les ajoutez pas au dépôt.
 
 ## Import (développement ou première install)
 
@@ -13,6 +14,8 @@
 mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS pw2 CHARACTER SET utf8mb4;"
 mysql -u root -p pw2 < cellier-projet/database/monvino-starter.sql
 ```
+
+En conteneur de développement, MariaDB charge automatiquement `monvino-starter.sql` au premier démarrage.
 
 ## Comptes de démo inclus
 
@@ -27,6 +30,6 @@ UPDATE vino__utilisateur SET email = 'votre-email-cognito@example.com' WHERE id 
 
 Ou connectez-vous une fois avec le compte admin Cognito : l’app peut enregistrer l’utilisateur automatiquement si le courriel n’existe pas encore.
 
-## Dump personnel
+## Archives de production
 
-Gardez `pw2_le_bon.sql` uniquement en local. Les archives de production générées par `./scripts/build-export.sh` utilisent ce fichier s’il est présent, sinon `monvino-starter.sql`.
+`./scripts/build-export.sh` inclut `monvino-starter.sql` dans le tarball. Importez-le sur le serveur, puis adaptez les comptes / données selon votre environnement.

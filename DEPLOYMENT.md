@@ -8,7 +8,7 @@ Ce guide décrit comment exporter le projet, le déployer sur un serveur de prod
 |-----------|---------|------|
 | Frontend React | `cellier-projet/client/build` → `www/` dans l’archive | Interface utilisateur (fichiers statiques) |
 | API PHP | `cellier-projet/api-php` | Backend REST JSON |
-| Base de données | `cellier-projet/database/monvino-starter.sql` (Git) ou `pw2_le_bon.sql` (local) | Schéma + données initiales |
+| Base de données | `cellier-projet/database/monvino-starter.sql` | Schéma + données de démo initiales |
 | Auth | AWS Cognito via `aws-exports.js` | Connexion utilisateurs |
 
 URL de production actuelle de l’API (dans le code) : `https://monvino.app/api-php/index.php`
@@ -44,7 +44,7 @@ Cela crée (s’ils manquent) :
 | `amplify/#current-cloud-backend/` | CloudFormation + secrets OAuth Amplify |
 | `amplify/.config/local-*` | Chemins machine locale |
 | `.devcontainer/docker-compose.yml` | Mots de passe MariaDB locaux |
-| `cellier-projet/database/pw2_le_bon.sql` | Dump SQL personnel (emails, inventaire réel) |
+| `cellier-projet/database/*.sql` (sauf `monvino-starter.sql`) | Dumps SQL personnels / production |
 
 ### Retirer des fichiers déjà suivis par Git
 
@@ -118,7 +118,6 @@ sudo mv monvino-release-* monvino
 ```bash
 mysql -u root -p -e "CREATE DATABASE pw2 CHARACTER SET utf8mb4;"
 mysql -u root -p pw2 < /var/www/monvino/database/monvino-starter.sql
-# ou, si vous avez inclus votre dump local : database/pw2_le_bon.sql
 ```
 
 Créer un utilisateur MySQL dédié (éviter `root` en production).

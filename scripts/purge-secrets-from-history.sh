@@ -17,6 +17,7 @@ echo "Paths removed from every commit:"
 echo "  - cellier-projet/client/amplify/#current-cloud-backend/"
 echo "  - cellier-projet/client/amplify/backend/awscloudformation/"
 echo "  - .devcontainer/docker-compose.yml"
+echo "  - cellier-projet/database/pw2_le_bon.sql"
 echo ""
 read -r -p "Continue? [y/N] " ans
 [[ "${ans:-}" =~ ^[yY]$ ]] || exit 0
@@ -28,8 +29,9 @@ git filter-branch -f --index-filter '
     cellier-projet/client/amplify/#current-cloud-backend \
     cellier-projet/client/amplify/backend/awscloudformation \
     .devcontainer/docker-compose.yml \
+    cellier-projet/database/pw2_le_bon.sql \
     2>/dev/null || true
-' -- "$BRANCH"
+' -- --all
 
 echo ""
 echo "Done. Verify with: git log --oneline -5"

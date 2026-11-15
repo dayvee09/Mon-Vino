@@ -19,7 +19,6 @@ BLOCKED_PATTERNS=(
   '\.pem$'
   '\.key$'
   'credentials\.json$'
-  'cellier-projet/database/pw2_le_bon\.sql$'
 )
 
 STAGED=$(git diff --cached --name-only --diff-filter=ACM || true)

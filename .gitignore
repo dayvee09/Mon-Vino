@@ -46,7 +46,7 @@ Thumbs.db
 *.swo
 *~
 
-# --- Database dumps (personal / production — never commit) ---
+# --- Database (only the public starter SQL is versioned) ---
 cellier-projet/database/*
 !cellier-projet/database/monvino-starter.sql
 !cellier-projet/database/README.md

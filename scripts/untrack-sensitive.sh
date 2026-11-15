@@ -12,6 +12,7 @@ FILES=(
   cellier-projet/client/amplify/.config/local-aws-info.json
   cellier-projet/client/amplify/.config/local-env-info.json
   .devcontainer/docker-compose.yml
+  cellier-projet/database/pw2_le_bon.sql
 )
 
 for f in "${FILES[@]}"; do
