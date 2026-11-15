@@ -23,8 +23,7 @@
     "BROWSER": "none",
     "DB_HOST": "db",
     "DB_NAME": "pw2",
-    "DB_USER": "monvino",
-    "DB_PASSWORD": "monvino"
+    "DB_USER": "monvino"
   },
   "customizations": {
     "vscode": {

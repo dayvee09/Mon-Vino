@@ -12,9 +12,14 @@ Base image uses **Node 22**; `post-create.sh` then installs the version from the
 ./scripts/dev-setup.sh
 # or manually:
 cp .devcontainer/docker-compose.example.yml .devcontainer/docker-compose.yml
+# then set DB_PASSWORD / MYSQL_ROOT_PASSWORD in the gitignored compose file
 ```
 
+The example ships with non-secret placeholders (`change-me`). After copying, you can change passwords in the gitignored `docker-compose.yml` only.
+
 Then **F1 → Dev Containers: Reopen in Container**.
+
+`DB_PASSWORD` comes from your local Compose file (not from `devcontainer.json`).
 
 Apache starts automatically in two places:
 1. when the `app` container starts (`docker-compose` `command`)
