@@ -15,10 +15,6 @@ API PHP : servie via Apache/XAMPP ou le proxy du client (`setupProxy.js`).
 
 Base de données : importer `cellier-projet/database/monvino-starter.sql` (voir `cellier-projet/database/README.md`).
 
-### Dev container (Docker)
-
-`dev-setup.sh` crée `.devcontainer/docker-compose.yml` (gitignored) à partir de `docker-compose.example.yml`. Ensuite : **F1 → Dev Containers: Reopen in Container**. Détails : [`.devcontainer/README.md`](./.devcontainer/README.md).
-
 ## Production
 
 Voir **[DEPLOYMENT.md](./DEPLOYMENT.md)** pour :
