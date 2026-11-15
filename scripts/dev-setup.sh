@@ -5,6 +5,13 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 API="$ROOT/cellier-projet/api-php"
 CLIENT="$ROOT/cellier-projet/client"
+DEVCONTAINER="$ROOT/.devcontainer"
+
+# Local Docker Compose (gitignored) — default for forks / Dev Containers
+if [ ! -f "$DEVCONTAINER/docker-compose.yml" ] && [ -f "$DEVCONTAINER/docker-compose.example.yml" ]; then
+  cp "$DEVCONTAINER/docker-compose.example.yml" "$DEVCONTAINER/docker-compose.yml"
+  echo "Created .devcontainer/docker-compose.yml from example (local-only, not committed)."
+fi
 
 if [ ! -f "$API/config.local.php" ]; then
   cp "$API/config.local.example.php" "$API/config.local.php"

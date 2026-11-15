@@ -36,10 +36,12 @@ yarn-debug.log*
 yarn-error.log*
 .eslintcache
 
-# --- Dev environment (local compose + secrets; example file is versioned) ---
-.devcontainer/*
-!.devcontainer/docker-compose.example.yml
-!.devcontainer/README.md
+# --- Dev environment (local Docker Compose is private; shared defaults are versioned) ---
+# Local-only: docker-compose.yml (copy from docker-compose.example.yml)
+.devcontainer/docker-compose.yml
+.devcontainer/docker-compose.override.yml
+docker-compose.yml
+docker-compose.override.yml
 .DS_Store
 Thumbs.db
 *.swp

@@ -1,5 +1,11 @@
-# Copy to docker-compose.yml (gitignored) or set env vars before docker compose up.
+# Default Docker Compose for forks / local Dev Containers.
+# Local file is gitignored — copy once, then customize passwords if you want:
 #   cp .devcontainer/docker-compose.example.yml .devcontainer/docker-compose.yml
+#
+# Override credentials without editing the file:
+#   DB_PASSWORD=secret MYSQL_ROOT_PASSWORD=secret docker compose -f .devcontainer/docker-compose.yml up -d
+name: monvino_devcontainer
+
 services:
   app:
     build:
@@ -7,7 +13,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ..:/workspaces/monvino:cached
-    command: sleep infinity
+    # Keep the container alive; Apache is started here and again on IDE attach (postStart).
+    command: bash -lc "sudo service apache2 start || true; exec sleep infinity"
     depends_on:
       db:
         condition: service_healthy
@@ -15,16 +22,17 @@ services:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-pw2}
       DB_USER: ${DB_USER:-monvino}
-      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      DB_PASSWORD: ${DB_PASSWORD:-monvino}
 
   db:
     image: mariadb:10.11
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me-root}
+      # Local-only defaults — change before exposing the DB outside your machine.
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: ${DB_NAME:-pw2}
       MYSQL_USER: ${DB_USER:-monvino}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-monvino}
     volumes:
       - mysql-data:/var/lib/mysql
       - ../cellier-projet/database/monvino-starter.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
