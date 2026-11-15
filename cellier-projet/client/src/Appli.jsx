@@ -24,6 +24,7 @@ import {
 import { email } from "./utilisateur.js";
 import Logo from "./img/png/logo-jaune.png";
 import { formFields } from "./aws-form-traduction.js";
+import Chargement from "./Chargement";
 
 const Admin = lazy(() => import("./Admin"));
 const Profil = lazy(() => import("./Profil.jsx"));
@@ -37,9 +38,7 @@ const Favoris = lazy(() => import("./Favoris"));
 const FrmAjoutCellier = lazy(() => import("./FrmAjoutCellier"));
 const FrmModifierCellier = lazy(() => import("./FrmModifierCellier"));
 
-const RouteFallback = () => (
-  <p className="liste-cellier--etat">Chargement…</p>
-);
+const RouteFallback = () => <Chargement message="Chargement…" />;
 
 function ProfilRedirect({ emailUtilisateur }) {
   if (!emailUtilisateur) {

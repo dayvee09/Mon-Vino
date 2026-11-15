@@ -1,5 +1,6 @@
 import "./ListeCelliers.scss";
 import Cellier from "./Cellier";
+import Chargement from "./Chargement";
 import { NavLink } from "react-router-dom";
 
 /**
@@ -33,7 +34,7 @@ function ListeCelliers(props) {
       <>
         <div className="Appli--entete"></div>
         <div className="Appli--container">
-          <p className="liste-cellier--etat">Chargement de vos celliers…</p>
+          <Chargement message="Chargement de vos celliers…" />
         </div>
       </>
     );

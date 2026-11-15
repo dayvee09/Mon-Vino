@@ -2,6 +2,7 @@ import "./ListeBouteillesInventaire.scss";
 import { useState, useEffect, useMemo } from "react";
 import { NavLink } from "react-router-dom";
 import BouteilleInventaire from "./BouteilleInventaire";
+import Chargement from "./Chargement";
 import Pagination from "@mui/material/Pagination";
 import usePagination from "./Pagination";
 
@@ -135,7 +136,7 @@ function ListeBouteillesInventaire(props) {
           </div>
         </div>
         <div className="Appli--container">
-          <p className="liste-cellier--etat">Chargement de l&apos;inventaire…</p>
+          <Chargement message="Chargement de l'inventaire…" />
         </div>
       </>
     );

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import "./ListeBouteilles.scss";
 import Bouteille from "./Bouteille";
+import Chargement from "./Chargement";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import rowIcone from "./img/svg/icone_row_left_white_filled.svg";
 
@@ -170,7 +171,7 @@ function ListeBouteilles(props) {
           </div>
         </div>
         <div className="Appli--container">
-          <p className="ListeBouteille--chargement">Chargement du cellier…</p>
+          <Chargement message="Chargement du cellier…" />
         </div>
       </div>
     );
