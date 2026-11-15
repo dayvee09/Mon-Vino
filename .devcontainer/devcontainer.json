@@ -1,0 +1,37 @@
+{
+  "name": "Monvino",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/monvino",
+  "shutdownAction": "stopCompose",
+  "forwardPorts": [3000, 80, 3306],
+  "portsAttributes": {
+    "3000": {
+      "label": "React (client)",
+      "onAutoForward": "openBrowser"
+    },
+    "80": {
+      "label": "PHP API (Apache)"
+    },
+    "3306": {
+      "label": "MariaDB"
+    }
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "postStartCommand": "bash .devcontainer/post-start.sh",
+  "remoteEnv": {
+    "BROWSER": "none",
+    "DB_HOST": "db",
+    "DB_NAME": "pw2",
+    "DB_USER": "monvino"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug"
+      ]
+    }
+  }
+}

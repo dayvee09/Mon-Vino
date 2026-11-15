@@ -1,0 +1,196 @@
+.chargement {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  justify-content: center;
+  margin: 2.5rem auto;
+  padding: 1rem;
+  text-align: center;
+}
+
+.chargement__icone {
+  filter: drop-shadow(0 8px 14px rgba(21, 36, 64, 0.12));
+  height: 150px;
+  width: 136px;
+}
+
+.chargement__svg {
+  display: block;
+  height: 100%;
+  overflow: visible;
+  width: 100%;
+}
+
+/* Pivot milieu du corps — goulot vers le bas-droite (horaire, SVG Y↓) */
+.chargement__bouteille {
+  animation: chargement-pencher 3.2s ease-in-out infinite;
+  transform-origin: 37px 70px;
+}
+
+.chargement__vin-bouteille {
+  animation: chargement-vin-bout 3.2s ease-in-out infinite;
+}
+
+.chargement__jet {
+  animation: chargement-jet 3.2s ease-in-out infinite;
+  /* Origine en haut du jet (sous le goulot) → s’étire vers le bas */
+  transform-origin: 100px 70px;
+}
+
+.chargement__jet-flux {
+  animation: chargement-flux 0.55s linear infinite;
+  stroke-dasharray: 6 10;
+}
+
+.chargement__vin-verre {
+  animation: chargement-remplir 3.2s ease-in-out infinite;
+}
+
+.chargement__surface-verre {
+  animation: chargement-surface 3.2s ease-in-out infinite;
+}
+
+.chargement__message {
+  color: #152440;
+  font-family: Raleway, sans-serif;
+  font-size: 15px;
+  letter-spacing: 0.02em;
+  margin: 0;
+  opacity: 0.85;
+}
+
+@keyframes chargement-pencher {
+  0%,
+  8% {
+    transform: rotate(52deg);
+  }
+  20%,
+  66% {
+    transform: rotate(82deg);
+  }
+  80%,
+  100% {
+    transform: rotate(52deg);
+  }
+}
+
+@keyframes chargement-vin-bout {
+  0%,
+  12% {
+    transform: translateY(-10px);
+  }
+  22%,
+  66% {
+    transform: translateY(-48px);
+  }
+  80%,
+  100% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Apparition du jet : s’étire du goulot vers le verre */
+@keyframes chargement-jet {
+  0%,
+  16% {
+    opacity: 0;
+    transform: scaleY(0.12);
+  }
+  22% {
+    opacity: 0.95;
+    transform: scaleY(0.55);
+  }
+  28%,
+  62% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  70% {
+    opacity: 0;
+    transform: scaleY(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes chargement-flux {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+@keyframes chargement-remplir {
+  0%,
+  18% {
+    transform: translateY(0);
+  }
+  66%,
+  78% {
+    transform: translateY(-42px);
+  }
+  92%,
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes chargement-surface {
+  0%,
+  18% {
+    opacity: 0;
+    transform: translateY(0) scaleX(0.35);
+  }
+  28% {
+    opacity: 0.95;
+    transform: translateY(-12px) scaleX(0.6);
+  }
+  66%,
+  78% {
+    opacity: 1;
+    transform: translateY(-42px) scaleX(1);
+  }
+  92%,
+  100% {
+    opacity: 0;
+    transform: translateY(0) scaleX(0.35);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chargement__bouteille,
+  .chargement__vin-bouteille,
+  .chargement__jet,
+  .chargement__jet-flux,
+  .chargement__vin-verre,
+  .chargement__surface-verre {
+    animation: none;
+  }
+
+  .chargement__bouteille {
+    transform: rotate(75deg);
+  }
+
+  .chargement__vin-bouteille {
+    transform: translateY(-40px);
+  }
+
+  .chargement__jet {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+
+  .chargement__vin-verre {
+    transform: translateY(-34px);
+  }
+
+  .chargement__surface-verre {
+    opacity: 1;
+    transform: translateY(-34px) scaleX(1);
+  }
+}

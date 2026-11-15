@@ -4,6 +4,8 @@ Application de gestion de cellier (React + PHP + MySQL/MariaDB + AWS Cognito).
 
 ## Démarrage rapide (développement)
 
+Prérequis : **Node.js 20+** (recommandé : LTS actuel, voir `.nvmrc`).
+
 ```bash
 ./scripts/dev-setup.sh
 cd cellier-projet/client && npm install && npm start
@@ -12,6 +14,10 @@ cd cellier-projet/client && npm install && npm start
 API PHP : servie via Apache/XAMPP ou le proxy du client (`setupProxy.js`).
 
 Base de données : importer `cellier-projet/database/monvino-starter.sql` (voir `cellier-projet/database/README.md`).
+
+### Dev container (Docker)
+
+`dev-setup.sh` crée `.devcontainer/docker-compose.yml` (gitignored) à partir de `docker-compose.example.yml`. Ensuite : **F1 → Dev Containers: Reopen in Container**. Détails : [`.devcontainer/README.md`](./.devcontainer/README.md).
 
 ## Production
 

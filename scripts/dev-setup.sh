@@ -5,6 +5,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 API="$ROOT/cellier-projet/api-php"
 CLIENT="$ROOT/cellier-projet/client"
+DEVCONTAINER="$ROOT/.devcontainer"
+
+# Local Docker Compose (gitignored) — default for forks / Dev Containers.
+# Edit passwords in that copy only; the example keeps non-secret placeholders.
+if [ ! -f "$DEVCONTAINER/docker-compose.yml" ] && [ -f "$DEVCONTAINER/docker-compose.example.yml" ]; then
+  cp "$DEVCONTAINER/docker-compose.example.yml" "$DEVCONTAINER/docker-compose.yml"
+  echo "Created .devcontainer/docker-compose.yml from example (local-only, not committed)."
+fi
 
 if [ ! -f "$API/config.local.php" ]; then
   cp "$API/config.local.example.php" "$API/config.local.php"
@@ -16,7 +24,7 @@ return [
     'db_host' => getenv('DB_HOST') ?: 'db',
     'db_name' => getenv('DB_NAME') ?: 'pw2',
     'db_user' => getenv('DB_USER') ?: 'monvino',
-    'db_pass' => getenv('DB_PASSWORD') ?: 'monvino',
+    'db_pass' => getenv('DB_PASSWORD') ?: 'change-me',
 ];
 PHP
     echo "Created api-php/config.local.php (dev container DB settings)"

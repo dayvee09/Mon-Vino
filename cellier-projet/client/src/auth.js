@@ -8,34 +8,37 @@ import {
   updateUserAttribute,
 } from "aws-amplify/auth";
 
-function withTimeout(promise, ms, label) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => {
-      setTimeout(
-        () => reject(new Error(`${label} timed out after ${ms}ms`)),
-        ms
-      );
-    }),
-  ]);
+function looksLikeFederatedUsername(value) {
+  return /^(google|facebook|amazon|signinwithapple)_/i.test(value);
 }
 
-function emailFromTokenPayload(payload) {
-  if (!payload) return null;
-  const candidates = [
-    payload.email,
-    payload["cognito:username"],
-    payload.preferred_username,
-  ];
+function pickEmail(...candidates) {
   for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
+    if (typeof value !== "string") continue;
+    const trimmed = value.trim();
+    if (!trimmed || looksLikeFederatedUsername(trimmed)) continue;
+    return trimmed;
   }
   return null;
 }
 
+function emailFromTokenPayload(payload) {
+  if (!payload) return null;
+  return (
+    pickEmail(payload.email, payload.preferred_username) ||
+    (typeof payload["cognito:username"] === "string"
+      ? payload["cognito:username"].trim()
+      : null)
+  );
+}
+
+/** Sync-friendly identity from the Authenticator user object (no network). */
 export function emailFromCognitoUser(user) {
+  if (!user) return null;
+  return pickEmail(user.signInDetails?.loginId);
+}
+
+export function fallbackIdentityFromCognitoUser(user) {
   if (!user) return null;
   const candidates = [
     user.signInDetails?.loginId,
@@ -50,66 +53,53 @@ export function emailFromCognitoUser(user) {
   return null;
 }
 
-export async function getUserEmail() {
-  let currentUser = null;
+/**
+ * Resolve the signed-in user's email with at most one cached session read
+ * and one User Pool attributes call. Never force-refresh — that hits
+ * Cognito Identity and can rate-limit the app into a death spiral.
+ */
+export async function getUserEmail(cognitoUser) {
+  const fromUser = emailFromCognitoUser(cognitoUser);
+  if (fromUser) return fromUser;
 
-  try {
-    currentUser = await withTimeout(getCurrentUser(), 12000, "getCurrentUser");
-  } catch (err) {
-    console.warn("getCurrentUser:", err);
-    return null;
-  }
-
-  try {
-    const attributes = await withTimeout(
-      fetchUserAttributes(),
-      12000,
-      "fetchUserAttributes"
-    );
-    if (attributes.email) {
-      return attributes.email;
+  let currentUser = cognitoUser || null;
+  if (!currentUser) {
+    try {
+      currentUser = await getCurrentUser();
+    } catch (err) {
+      console.warn("getCurrentUser:", err);
+      return null;
     }
-  } catch (err) {
-    console.warn("fetchUserAttributes:", err);
   }
 
+  let federatedFallback = null;
   try {
-    const session = await withTimeout(
-      fetchAuthSession({ forceRefresh: true }),
-      12000,
-      "fetchAuthSession"
-    );
+    const session = await fetchAuthSession();
     const fromToken = emailFromTokenPayload(session.tokens?.idToken?.payload);
-    if (fromToken) {
+    if (fromToken && !looksLikeFederatedUsername(fromToken)) {
       return fromToken;
     }
+    federatedFallback = fromToken;
   } catch (err) {
     console.warn("fetchAuthSession:", err);
   }
 
-  const loginId = currentUser.signInDetails?.loginId;
-  if (typeof loginId === "string" && loginId.trim()) {
-    return loginId.trim();
+  try {
+    const attributes = await fetchUserAttributes();
+    if (attributes.email) {
+      return attributes.email;
+    }
+  } catch (err) {
+    // Rate limits / identity-pool 400s — fall through to local identity.
+    console.warn("fetchUserAttributes:", err);
   }
 
-  if (currentUser.username?.trim()) {
-    return currentUser.username.trim();
-  }
-
-  return null;
+  return federatedFallback || fallbackIdentityFromCognitoUser(currentUser);
 }
 
-export async function getUserEmailWithRetry(maxAttempts = 8, delayMs = 500) {
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const userEmail = await getUserEmail();
-    if (userEmail) {
-      return userEmail;
-    }
-    if (attempt < maxAttempts - 1) {
-      await new Promise((resolve) => setTimeout(resolve, delayMs));
-    }
-  }
-  return null;
+/** @deprecated Prefer getUserEmail(cognitoUser) — kept for call sites. */
+export async function getUserEmailWithRetry(_maxAttempts, _delayMs, cognitoUser) {
+  return getUserEmail(cognitoUser);
 }
 
 export {

@@ -1,5 +1,13 @@
-# Copy to docker-compose.yml (gitignored) or set env vars before docker compose up.
+# Default Docker Compose for forks / local Dev Containers.
+# Local file is gitignored — copy once, then customize passwords if you want:
 #   cp .devcontainer/docker-compose.example.yml .devcontainer/docker-compose.yml
+#
+# Override credentials without editing the file (after you copy to docker-compose.yml):
+#   DB_PASSWORD=... MYSQL_ROOT_PASSWORD=... docker compose -f .devcontainer/docker-compose.yml up -d
+#
+# Placeholders below are intentional — set real values only in the gitignored docker-compose.yml.
+name: monvino_devcontainer
+
 services:
   app:
     build:
@@ -7,7 +15,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ..:/workspaces/monvino:cached
-    command: sleep infinity
+    # Keep the container alive; Apache is started here and again on IDE attach (postStart).
+    command: bash -lc "sudo service apache2 start || true; exec sleep infinity"
     depends_on:
       db:
         condition: service_healthy
