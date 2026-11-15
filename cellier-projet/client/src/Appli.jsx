@@ -1,640 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> monvino/master
-// Début des modifications
-
-import React from "react";
-import { Route, Routes } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { Authenticator } from "@aws-amplify/ui-react";
-import "@aws-amplify/ui-react/styles.css";
-import aws_exports from "./aws-exports";
-import "./Appli.scss";
-import NavMobile from "./NavMobile";
-import NavDesktop from "./NavDesktop";
-import PiedDePage from "./PiedDePage.jsx";
-import ListeBouteilles from "./ListeBouteilles";
-import FrmAjoutCellier from "./FrmAjoutCellier";
-import FrmModifierCellier from "./FrmModifierCellier";
-import Admin from "./Admin";
-import ListeCelliers from "./ListeCelliers";
-import Utilisateur, { user } from "./Utilisateur.jsx";
-import Profil from "./Profil.jsx";
-import Favoris from "./Favoris";
-import Aide from "./Aide";
-import { Auth } from "aws-amplify";
-import { email } from "./utilisateur.js";
-import Logo from "./img/png/logo-jaune.png";
-import FrmAjoutBouteille from "./FrmAjoutBouteille";
-import { dict, formFields } from "./aws-form-traduction.js";
-import ListeBouteillesInventaire from "./ListeBouteillesInventaire";
-
-Auth.configure(aws_exports);
-
-/**
- * Gestion de l'application
- *
- * contenant la gestion des états, la configuration de la varible de l'environnement , des paramètres de routage du système.
- * Prétraitement, acquisition et chargement de toutes les données à render, déploiement logique algorithmique.
- * Disposition des composants
- *
- * @date 2022-09-30
- * @returns {*}
- */
-const Appli = () => {
-  const [error, setError] = useState([]);
-  const [bouteilles, setBouteilles] = useState([]);
-  const [bouteillesInventaire, setBouteillesInventaire] = useState([]);
-  const [emailUtilisateur, setEmailUtilisateur] = useState([]);
-  const [id, setId] = useState([]);
-  const [cellier, setCellier] = useState([]);
-  const [cible, setCible] = useState([]);
-  const [nomCellier, setNomCellier] = useState([]);
-  const [username, setUsername] = useState([]);
-  const [utilisateur, setUtilisateur] = useState([]);
-  const [utilisateurs, setUtilisateurs] = useState([]);
-  const [celliers, setCelliers] = useState([]);
-  const [indexNav, setIndexNav] = useState(0);
-  const [resetBottomNav, setResetBottomNav] = useState(false);
-  const ENV = "dev";
-  const [URI, setURI] = useState([]);
-  const [favorisId, setFavorisId] = useState([]);
-
-  let location = window.location.pathname;
-
-  useEffect(() => {
-    if (ENV == "prod") {
-      setURI("https://monvino.app/api-php/index.php");
-    } else {
-      setURI("http://localhost/PW2/cellier-projet/api-php");
-    }
-  }, []);
-
-  // ------------------------------- fonctions de gestion des états ----------------------------
-
-  email().then((email) => {
-    const emailUtilisateur = email;
-    setEmailUtilisateur(emailUtilisateur);
-    if (utilisateur === undefined) {
-      createUser(emailUtilisateur);
-    }
-  });
-
-  useEffect(() => {
-    fetchCelliers();
-    fetchVinsInventaire();
-    fetchFavorisId(id);
-  }, [id]);
-
-  useEffect(() => {
-    fetchVins(cellier);
-  }, [cellier]);
-
-  function gererBouteilles(idBouteilles) {
-    setBouteilles(idBouteilles);
-  }
-  function gererCellier(idCellier) {
-    setCellier(idCellier);
-  }
-  function gererCible(cible) {
-    setCible(cible);
-  }
-
-  // -------------------------- Requêtes Fetch ------------------------------------------------------
-
-  // ----------------------- Gestion des utilisateurs ------------------------------------------------
-  async function createUser(emailUtilisateur) {
-    let bool = false;
-    let defaultUsername;
-    if (emailUtilisateur.includes("@")) {
-      defaultUsername = emailUtilisateur.substring(
-        0,
-        emailUtilisateur.indexOf("@")
-      );
-    } else if (emailUtilisateur.includes("amazon")) {
-      defaultUsername = "Utilisateur Amazon";
-    } else if (emailUtilisateur.includes("google")) {
-      defaultUsername = "Utilisateur Google";
-    } else if (emailUtilisateur.includes("facebook")) {
-      defaultUsername = "Utilisateur facebook";
-    } else {
-      defaultUsername = "Utilisateur";
-    }
-    utilisateurs.forEach((utilisateur) => {
-      if (utilisateur["email"] === emailUtilisateur && bool === false) {
-        bool = true;
-      }
-    });
-    if (!bool) {
-      let reponse = await fetch(URI + "/admin/ajout/utilisateurs", {
-        method: "POST",
-        body: JSON.stringify({ email: emailUtilisateur, nom: defaultUsername }),
-      });
-      let reponseJson = await reponse.json();
-    }
-  }
-
-  async function fetchUtilisateurs() {
-    await fetch(
-      URI + "/" + "admin" + "/" + emailUtilisateur + "/" + "utilisateurs"
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setUtilisateurs(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function fetchUtilisateur() {
-    await fetch(
-      URI + "/" + "email" + "/" + emailUtilisateur + "/" + "utilisateurs"
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setUtilisateur(data[0]);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function supprimerUtilisateur() {
-    let reponse = await fetch(
-      URI + "/" + "email" + "/" + emailUtilisateur + "/" + "utilisateurs",
-      { method: "DELETE" }
-    );
-    let reponseJson = await reponse.json();
-    await Auth.deleteUser()
-      .then(() => {
-        setId("");
-        setUtilisateur("");
-        setBouteilles("");
-        setBouteillesInventaire("");
-        setCelliers("");
-        setEmailUtilisateur("");
-        setUsername("");
-      })
-      .catch((err) =>
-        console.log("Erreur lors de la suppression de votre profil", err)
-      );
-  }
-
-  async function gererSignOut() {
-    await Auth.signOut()
-      .then(() => {
-        setResetBottomNav(false);
-        setId("");
-        setUtilisateur("");
-        setBouteilles("");
-        setBouteillesInventaire("");
-        setCelliers("");
-        setEmailUtilisateur("");
-        setUsername("");
-        setIndexNav(0);
-      })
-      .catch((err) => console.log("Erreur lors de la déconnexion", err));
-  }
-
-  // ---------------------------------- Gestion des celliers -----------------------------
-  async function fetchCelliers() {
-    await fetch(URI + "/" + "user_id" + "/" + id + "/" + "celliers")
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        if (data["erreur"] === undefined) {
-          setCelliers(data);
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function fetchNomCellier() {
-    await fetch(
-      URI +
-        "/" +
-        "user_id" +
-        "/" +
-        id +
-        "/" +
-        "celliers" +
-        "/" +
-        "cellier" +
-        "/" +
-        cellier
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setNomCellier(data.nom);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  // --------------------------------- Gestion des bouteilles ------------------------------------
-
-  async function fetchVins(cellier) {
-    await fetch(URI + "/" + "cellier" + "/" + cellier + "/" + "vins")
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setBouteilles(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-  // --------------------------------- Gestion des différentes bouteilles comprises dans tous mes celliers ------------------------------------
-
-  async function fetchVinsInventaire() {
-    await fetch(URI + "/" + "user_id" + "/" + id + "/" + "vinsInventaire")
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setBouteillesInventaire(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function fetchAjouterFavoris(vin) {
-    await fetch(URI + `/favoris/ajouter/favoris`, {
-      method: "POST",
-      body: JSON.stringify(vin),
-    })
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        fetchFavorisId(id);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function fetchSupprimerFavoris(vin) {
-    await fetch(URI + `/utilisateur/${id}/favoris/vin/${vin}`, {
-      method: "DELETE",
-    })
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        fetchFavorisId(id);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  async function fetchFavorisId(utilisateur) {
-    await fetch(
-      URI + "/" + "utilisateurId" + "/" + utilisateur + "/" + "favoris"
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setFavorisId(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
-
-  // ---------------------------------- Rendering -----------------------------------------
-  return (
-    <div className={Auth.user ? "Appli" : "Login"}>
-      {Auth.user && (
-        <NavDesktop
-          user={Auth.user}
-          gererSignOut={gererSignOut}
-          utilisateur={utilisateur}
-          username={username}
-        />
-      )}
-      <div>
-        <img
-          className={Auth.user ? "Hidden" : "logo"}
-          src={Logo}
-          alt="logo-mon-vino"
-        ></img>
-        <Authenticator
-          socialProviders={["amazon", "google"]}
-          className="Authenticator"
-          formFields={formFields}
-        >
-          {({ signOut, user }) => (
-            <div>
-              <Utilisateur
-                utilisateur={utilisateur}
-                setUtilisateur={setUtilisateur}
-                utilisateurs={utilisateurs}
-                setUtilisateurs={setUtilisateurs}
-                username={username}
-                setUsername={setUsername}
-                id={id}
-                setId={setId}
-                emailUtilisateur={emailUtilisateur}
-                setEmailUtilisateur={setEmailUtilisateur}
-                fetchUtilisateurs={fetchUtilisateurs}
-                fetchUtilisateur={fetchUtilisateur}
-                createUser={createUser}
-              />
-
-              {/* ------------------------------ Routes --------------------------------*/}
-              <Routes>
-                <Route
-                  path={`/profil/:emailUtilisateur`}
-                  element={
-                    <Profil
-                      supprimerUtilisateur={supprimerUtilisateur}
-                      emailUtilisateur={emailUtilisateur}
-                      setEmailUtilisateur={setEmailUtilisateur}
-                      utilisateur={utilisateur}
-                      setUsername={setUsername}
-                      username={username}
-                      fetchUtilisateur={fetchUtilisateur}
-                      setUtilisateur={setUtilisateur}
-                      gererSignOut={gererSignOut}
-                      URI={URI}
-                    />
-                  }
-                />
-                <Route
-                  path={`/admin/:emailUtilisateur`}
-                  element={
-                    <Admin
-                      emailUtilisateur={emailUtilisateur}
-                      setEmailUtilisateur={setEmailUtilisateur}
-                      utilisateur={utilisateur}
-                      setUtilisateur={setUtilisateur}
-                      URI={URI}
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      error={error}
-                      setError={setError}
-                      gererSignOut={gererSignOut}
-                      fetchVins={fetchVins}
-                    />
-                  }
-                />
-                <Route
-                  path={`/cellier/:idCellier/vins`}
-                  element={
-                    <ListeBouteilles
-                      nomCellier={nomCellier}
-                      setNomCellier={setNomCellier}
-                      fetchNomCellier={fetchNomCellier}
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      fetchVins={fetchVins}
-                      gererBouteilles={gererBouteilles}
-                      cellier={cellier}
-                      celliers={celliers}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                      fetchUtilisateur={fetchUtilisateur}
-                      fetchAjouterFavoris={fetchAjouterFavoris}
-                      fetchSupprimerFavoris={fetchSupprimerFavoris}
-                      favorisId={favorisId}
-                      setFavorisId={setFavorisId}
-                    />
-                  }
-                />
-                <Route
-                  path={`/cellier/:idCellier/vins/:cible`}
-                  element={
-                    <ListeBouteilles
-                      nomCellier={nomCellier}
-                      setNomCellier={setNomCellier}
-                      fetchNomCellier={fetchNomCellier}
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      fetchVins={fetchVins}
-                      gererBouteilles={gererBouteilles}
-                      cellier={cellier}
-                      celliers={celliers}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                      fetchUtilisateur={fetchUtilisateur}
-                      fetchAjouterFavoris={fetchAjouterFavoris}
-                      fetchSupprimerFavoris={fetchSupprimerFavoris}
-                      favorisId={favorisId}
-                      setFavorisId={setFavorisId}
-                      cible={cible}
-                    />
-                  }
-                />
-                <Route
-                  path={`/vins`}
-                  element={
-                    <FrmAjoutBouteille
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      fetchVins={fetchVins}
-                      fetchCelliers={fetchCelliers}
-                      gererBouteilles={gererBouteilles}
-                      celliers={celliers}
-                      cellier={cellier}
-                      setCellier={setCellier}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                    />
-                  }
-                />
-                <Route
-                  path={`/vinsInventaire`}
-                  element={
-                    <ListeBouteillesInventaire
-                      bouteillesInventaire={bouteillesInventaire}
-                      setBouteillesInventaire={setBouteillesInventaire}
-                      fetchVinsInventaire={fetchVinsInventaire}
-                      user_id={id}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                      cellier={cellier}
-                      fetchVins={fetchVins}
-                      fetchNomCellier={fetchNomCellier}
-                      gererCellier={gererCellier}
-                      gererCible={gererCible}
-                    />
-                  }
-                />
-                <Route
-                  path={`/`}
-                  element={
-                    <ListeCelliers
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      celliers={celliers}
-                      setCelliers={setCelliers}
-                      cellier={cellier}
-                      setCellier={setCellier}
-                      fetchCelliers={fetchCelliers}
-                      fetchVins={fetchVins}
-                      id={id}
-                      emailUtilisateur={emailUtilisateur}
-                      utilisateur={utilisateur}
-                      gererCellier={gererCellier}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                    />
-                  }
-                />
-                <Route
-                  path={`/PW2/cellier-projet`}
-                  element={
-                    <ListeCelliers
-                      celliers={celliers}
-                      setCelliers={setCelliers}
-                      cellier={cellier}
-                      setCellier={setCellier}
-                      fetchCelliers={fetchCelliers}
-                      fetchVins={fetchVins}
-                      id={id}
-                      emailUtilisateur={emailUtilisateur}
-                      utilisateur={utilisateur}
-                      gererCellier={gererCellier}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                    />
-                  }
-                />
-                <Route
-                  path={`/cellier/ajout/celliers`}
-                  element={
-                    <FrmAjoutCellier
-                      celliers={celliers}
-                      fetchCelliers={fetchCelliers}
-                      URI={URI}
-                      setError={setError}
-                    />
-                  }
-                />
-                <Route
-                  path={`/modifier-cellier`}
-                  element={
-                    <FrmModifierCellier
-                      fetchCelliers={fetchCelliers}
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                    />
-                  }
-                />
-                <Route
-                  path={`/favoris`}
-                  element={
-                    <Favoris
-                      URI={URI}
-                      error={error}
-                      setError={setError}
-                      id={id}
-                      nomCellier={nomCellier}
-                      setNomCellier={setNomCellier}
-                      fetchNomCellier={fetchNomCellier}
-                      bouteilles={bouteilles}
-                      setBouteilles={setBouteilles}
-                      fetchVins={fetchVins}
-                      gererBouteilles={gererBouteilles}
-                      cellier={cellier}
-                      celliers={celliers}
-                      fetchUtilisateur={fetchUtilisateur}
-                      fetchAjouterFavoris={fetchAjouterFavoris}
-                      fetchSupprimerFavoris={fetchSupprimerFavoris}
-                      favorisId={favorisId}
-                      setFavorisId={setFavorisId}
-                    />
-                  }
-                />
-                <Route
-                  path={`/aide`}
-                  element={<Aide URI={URI} error={error} setError={setError} />}
-                />
-              </Routes>
-            </div>
-          )}
-        </Authenticator>
-        <p className={Auth.user ? "Hidden" : "Auth-sub-title"}>
-          Commencez dès maintenant votre collection de vin !
-        </p>
-        <NavMobile
-          Auth={Auth}
-          emailUtilisateur={emailUtilisateur}
-          utilisateur={utilisateur}
-          setIndexNav={setIndexNav}
-          indexNav={indexNav}
-          setResetBottomNav={setResetBottomNav}
-          resetBottomNav={resetBottomNav}
-        />
-      </div>
-      <PiedDePage />
-    </div>
-  );
-};
-
-export default Appli;
-<<<<<<< HEAD
-=======
 // Début des modifications
 
 import React, { Suspense, lazy } from "react";
@@ -652,7 +15,12 @@ import NavDesktop from "./NavDesktop";
 import PiedDePage from "./PiedDePage.jsx";
 import ListeCelliers from "./ListeCelliers";
 import Utilisateur from "./Utilisateur.jsx";
-import { signOut, deleteUser, emailFromCognitoUser } from "./auth";
+import {
+  signOut,
+  deleteUser,
+  emailFromCognitoUser,
+  fallbackIdentityFromCognitoUser,
+} from "./auth";
 import { email } from "./utilisateur.js";
 import Logo from "./img/png/logo-jaune.png";
 import { formFields } from "./aws-form-traduction.js";
@@ -781,20 +149,36 @@ const AppliContent = ({ cognitoUser }) => {
 
     async function resolveEmail() {
       setUserLoadError(null);
-      let userEmail = emailFromCognitoUser(cognitoUser);
-      if (!userEmail) {
-        userEmail = await email();
+      // Prefer local Authenticator identity so Google login can bootstrap
+      // without waiting on Cognito User Attributes / Identity Pool.
+      const localEmail =
+        emailFromCognitoUser(cognitoUser) ||
+        fallbackIdentityFromCognitoUser(cognitoUser);
+
+      if (localEmail) {
+        setEmailUtilisateur((prev) => prev || localEmail);
       }
-      if (cancelled) return;
-      if (userEmail) {
-        setEmailUtilisateur((prev) => prev || userEmail);
-        return;
+
+      // Optional upgrade to a real email — never block on it, never retry.
+      try {
+        const resolved = await email(cognitoUser);
+        if (cancelled || !resolved) return;
+        if (resolved.includes("@")) {
+          setEmailUtilisateur((prev) =>
+            prev && prev.includes("@") ? prev : resolved
+          );
+        }
+      } catch (err) {
+        console.warn("Optional email upgrade skipped:", err);
       }
-      setUserLoadError(
-        new Error(
-          "Impossible de lire l'email du compte connecté. Réessayez ou utilisez la connexion par courriel."
-        )
-      );
+
+      if (!localEmail) {
+        setUserLoadError(
+          new Error(
+            "Impossible de lire l'email du compte connecté. Réessayez ou utilisez la connexion par courriel."
+          )
+        );
+      }
     }
 
     resolveEmail();
@@ -802,7 +186,7 @@ const AppliContent = ({ cognitoUser }) => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, cognitoUser, sessionVersion]);
+  }, [isAuthenticated, cognitoUser]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -845,11 +229,12 @@ const AppliContent = ({ cognitoUser }) => {
 
   useEffect(() => {
     const cancel = Hub.listen("auth", ({ payload }) => {
-      if (
-        payload.event === "signedIn" ||
-        payload.event === "tokenRefresh"
-      ) {
+      // Do not react to tokenRefresh — that re-triggers Cognito calls and
+      // quickly hits TooManyRequestsException after Identity Pool 400s.
+      if (payload.event === "signedIn") {
         bootstrapRunning.current = false;
+        setEmailUtilisateur("");
+        setId("");
         setSessionVersion((version) => version + 1);
       }
     });
@@ -915,11 +300,13 @@ const AppliContent = ({ cognitoUser }) => {
     if (!URI || !userEmail) return false;
 
     const encodedEmail = encodeURIComponent(userEmail);
+    const fetchApi = (path, options = {}) =>
+      fetch(URI + path, { ...options, signal: AbortSignal.timeout(15000) });
 
     try {
       setUserLoadError(null);
-      const existing = await fetch(
-        URI + "/email/" + encodedEmail + "/utilisateurs"
+      const existing = await fetchApi(
+        "/email/" + encodedEmail + "/utilisateurs"
       );
       if (existing.ok) {
         const data = await existing.json();
@@ -930,7 +317,7 @@ const AppliContent = ({ cognitoUser }) => {
         }
       }
 
-      const reponse = await fetch(URI + "/admin/ajout/utilisateurs", {
+      const reponse = await fetchApi("/admin/ajout/utilisateurs", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -963,8 +350,8 @@ const AppliContent = ({ cognitoUser }) => {
         return true;
       }
 
-      const retry = await fetch(
-        URI + "/email/" + encodedEmail + "/utilisateurs"
+      const retry = await fetchApi(
+        "/email/" + encodedEmail + "/utilisateurs"
       );
       if (retry.ok) {
         const data = await retry.json();
@@ -979,7 +366,15 @@ const AppliContent = ({ cognitoUser }) => {
       return false;
     } catch (error) {
       console.error("Error creating user: ", error);
-      setUserLoadError(error);
+      const timedOut =
+        error?.name === "TimeoutError" || error?.name === "AbortError";
+      setUserLoadError(
+        timedOut
+          ? new Error(
+              "L'API PHP ne répond pas (délai dépassé). Vérifiez qu'Apache tourne: sudo service apache2 start"
+            )
+          : error
+      );
       setError(error);
       return false;
     }
@@ -1696,6 +1091,3 @@ const Appli = () => (
 );
 
 export default Appli;
->>>>>>> master
-=======
->>>>>>> monvino/master
