@@ -62,7 +62,17 @@ export default function NavDesktop({
           </NavLink>
           <div
             className="navDesktop--container-profil"
+            role="button"
+            tabIndex={0}
+            aria-haspopup="menu"
+            aria-expanded={menuContextuelOuvert}
             onClick={gererMenuContextuel}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                gererMenuContextuel(e);
+              }
+            }}
           >
             <img src={Image} alt="icone-profil" width={20}></img>
             <p>{username}</p>
@@ -72,6 +82,7 @@ export default function NavDesktop({
           open={menuContextuelOuvert}
           anchorEl={eltAncrage}
           onClose={gererFermerMenuContextuel}
+          disableScrollLock
           anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
           transformOrigin={{ vertical: "top", horizontal: "left" }}
           PaperProps={{

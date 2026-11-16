@@ -22,8 +22,14 @@
 }
 
 .liste-cellier--entete {
+	align-items: center;
 	display: flex;
+	gap: 1rem;
 	justify-content: space-between;
+
+	h1 {
+		padding-bottom: 0;
+	}
 
 	.entete--items {
 		display: flex;
@@ -34,17 +40,6 @@
 
 	.entete--items > * + * {
 		margin-top: 10px;
-	}
-
-	.liste-cellier--btn-ajout {
-		border: none;
-		background-color: transparent;
-		cursor: pointer;
-		font-family: Raleway;
-		font-size: 15px;
-		padding-top: 54px;
-		text-underline-offset: 5px;
-		text-decoration: underline 1px;
 	}
 
 	.liste-inventaire-total {
@@ -75,8 +70,31 @@
 	}
 }
 
-.liste-cellier--btn-ajout:hover {
-	color: #cc4240;
+.liste-cellier--btn-ajout {
+	background-color: #152440;
+	border: 1px solid #152440;
+	border-radius: 4px;
+	color: #f3f5eb;
+	cursor: pointer;
+	font-family: Alata;
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	padding: 10px 18px;
+	text-decoration: none;
+	text-transform: uppercase;
+	transition: background-color 0.15s ease, border-color 0.15s ease,
+		color 0.15s ease;
+
+	&:hover {
+		background-color: #f1ab50;
+		border-color: #f1ab50;
+		color: #152440;
+	}
+
+	&:focus-visible {
+		outline: 2px solid rgba(241, 171, 80, 0.55);
+		outline-offset: 2px;
+	}
 }
 
 .liste-cellier--message-retour {
@@ -98,5 +116,4 @@
 .liste-cellier--btn-ajout--vide {
 	display: block;
 	margin: 1.5rem auto 0;
-	padding-top: 0;
 }

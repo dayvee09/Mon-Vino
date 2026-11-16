@@ -56,33 +56,129 @@
       }
     }
 
+    .retour {
+      appearance: none;
+      background-color: transparent;
+      border: 1px solid rgba(243, 245, 235, 0.55);
+      border-radius: 4px;
+      box-sizing: border-box;
+      color: #f3f5eb;
+      cursor: pointer;
+      font-family: Alata;
+      font-size: 11px;
+      line-height: 1;
+      margin-bottom: 5px;
+      padding: 10px 12px;
+      text-transform: uppercase;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+
+      &:hover {
+        background-color: rgba(204, 66, 64, 0.12);
+        border-color: #cc4240;
+      }
+
+      img {
+        display: inline-block;
+        padding-right: 10px;
+        vertical-align: middle;
+      }
+    }
+
     .Appli--tri-container {
-      select {
-        background-color: #cc4240;
-        background-image: url("./img/svg/icone_row_down_blue.svg");
-        background-size: 6% 50%;
-        background-repeat: no-repeat;
-        background-position-x: 95%;
-        background-position-y: 10px;
-        border: #cc4240 1px solid;
-        color: #f3f5eb;
-        font-size: 11px;
+      align-items: center;
+
+      .retour {
+        height: 38px;
+        margin-bottom: 0;
+      }
+
+      .tri {
+        margin-bottom: 0;
         margin-top: 10px;
         min-width: 170px;
+        position: relative;
+      }
+
+      .tri__bouton {
+        background-color: transparent;
+        background-image: url("./img/svg/icone_row_down_cream.svg");
+        background-size: 10px 10px;
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        border: 1px solid rgba(243, 245, 235, 0.55);
+        border-radius: 4px;
+        box-sizing: border-box;
+        color: #f3f5eb;
+        cursor: pointer;
+        display: block;
+        font-family: Alata;
+        font-size: 11px;
+        height: 38px;
+        line-height: 1;
+        min-width: 170px;
         outline: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
+        padding: 0 32px 0 12px;
+        text-align: left;
+        text-transform: uppercase;
+        transition: background-color 0.15s ease, border-color 0.15s ease;
+        width: 100%;
+
+        &:hover {
+          background-color: rgba(241, 171, 80, 0.12);
+          border-color: #f1ab50;
+        }
+
+        &:focus,
+        &[aria-expanded="true"] {
+          background-color: rgba(241, 171, 80, 0.16);
+          border-color: #f1ab50;
+        }
+      }
+
+      .tri__liste {
+        background-color: #152440;
+        border: 1px solid #f1ab50;
+        border-radius: 4px;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+        left: 0;
+        list-style: none;
+        margin: 4px 0 0;
+        max-height: 260px;
+        min-width: 100%;
+        overflow-y: auto;
+        padding: 4px 0;
+        position: absolute;
+        right: 0;
+        top: 100%;
+        z-index: 20;
+      }
+
+      .tri__option {
+        color: #f3f5eb;
+        cursor: pointer;
+        font-family: Alata;
+        font-size: 11px;
+        padding: 10px 12px;
+        text-transform: uppercase;
+        transition: background-color 0.12s ease, color 0.12s ease;
+        white-space: nowrap;
+
+        &:hover,
+        &--selected {
+          background-color: #f1ab50;
+          color: #152440;
+        }
       }
 
       @media only screen and (min-width: 365px) {
-        select {
+        .tri {
           margin-left: 10px;
         }
       }
 
       @media only screen and (min-width: 390px) {
         display: flex;
-        select {
+        .tri {
           margin-left: 10px;
           margin-top: 0px;
         }

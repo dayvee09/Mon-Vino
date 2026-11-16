@@ -1,9 +1,22 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import "./ListeBouteilles.scss";
 import Bouteille from "./Bouteille";
 import Chargement from "./Chargement";
 import { NavLink, useNavigate, useParams, useLocation } from "react-router-dom";
 import rowIcone from "./img/svg/icone_row_left_white_filled.svg";
+
+const OPTIONS_TRI = [
+  { value: "tout", label: "Tout" },
+  { value: "vin-rouge", label: "Vin Rouge" },
+  { value: "vin-blanc", label: "Vin Blanc" },
+  { value: "vin-rose", label: "Vin Rosé" },
+  { value: "qt-decroissante", label: "Quantité décroissante" },
+  { value: "qt-croissante", label: "Quantité croissante" },
+  { value: "prix-decroissant", label: "Prix-décroissant" },
+  { value: "prix-croissant", label: "Prix-croissant" },
+  { value: "alph-decroissant", label: "Nom décroissant" },
+  { value: "alph-croissant", label: "Nom croissant" },
+];
 
 /**
  * L'affichage de la liste des bouteilles
@@ -28,7 +41,9 @@ function ListeBouteilles(props) {
    *  État des bouteilles au tri
    */
   const [unique, setUnique] = useState(false);
-  const [sortType, setSortType] = useState([]);
+  const [sortType, setSortType] = useState("tout");
+  const [triOuvert, setTriOuvert] = useState(false);
+  const triRef = useRef(null);
   let indexBouteille = 0;
   if (bouteilles.length > 0) {
     indexBouteille = bouteilles.findIndex((object) => {
@@ -118,6 +133,30 @@ function ListeBouteilles(props) {
   }, [changementBouteille]);
 
   useEffect(() => {
+    if (!triOuvert) return;
+
+    function fermerTri(e) {
+      if (triRef.current && !triRef.current.contains(e.target)) {
+        setTriOuvert(false);
+      }
+    }
+
+    function fermerSurEchap(e) {
+      if (e.key === "Escape") setTriOuvert(false);
+    }
+
+    document.addEventListener("mousedown", fermerTri);
+    document.addEventListener("keydown", fermerSurEchap);
+    return () => {
+      document.removeEventListener("mousedown", fermerTri);
+      document.removeEventListener("keydown", fermerSurEchap);
+    };
+  }, [triOuvert]);
+
+  const labelTri =
+    OPTIONS_TRI.find((option) => option.value === sortType)?.label ?? "Tout";
+
+  useEffect(() => {
     if (cible) {
       if (document.querySelectorAll("[data-id]").length > 1) {
         if (
@@ -188,27 +227,45 @@ function ListeBouteilles(props) {
               </button>
             </NavLink>
             {bouteilles.length > 1 && (
-              <select
-                className="retour"
-                name="tri"
-                aria-label="tri"
-                id="tri"
-                defaultValue="tout"
-                onChange={(e) => setSortType(e.target.value)}
-              >
-                <option value="tout">
-                  Tout
-                </option>
-                <option value="vin-rouge">Vin Rouge</option>
-                <option value="vin-blanc">Vin Blanc</option>
-                <option value="vin-rose">Vin Rosé</option>
-                <option value="qt-decroissante">Quantité décroissante</option>
-                <option value="qt-croissante">Quantité croissante</option>
-                <option value="prix-decroissant">Prix-décroissant</option>
-                <option value="prix-croissant">Prix-croissant</option>
-                <option value="alph-decroissant">Nom décroissant</option>
-                <option value="alph-croissant">Nom croissant</option>
-              </select>
+              <div className="tri" ref={triRef}>
+                <button
+                  type="button"
+                  className="tri__bouton"
+                  id="tri"
+                  aria-label="tri"
+                  aria-haspopup="listbox"
+                  aria-expanded={triOuvert}
+                  onClick={() => setTriOuvert((ouvert) => !ouvert)}
+                >
+                  {labelTri}
+                </button>
+                {triOuvert && (
+                  <ul
+                    className="tri__liste"
+                    role="listbox"
+                    aria-labelledby="tri"
+                  >
+                    {OPTIONS_TRI.map((option) => (
+                      <li
+                        key={option.value}
+                        role="option"
+                        aria-selected={sortType === option.value}
+                        className={
+                          sortType === option.value
+                            ? "tri__option tri__option--selected"
+                            : "tri__option"
+                        }
+                        onClick={() => {
+                          setSortType(option.value);
+                          setTriOuvert(false);
+                        }}
+                      >
+                        {option.label}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         </div>

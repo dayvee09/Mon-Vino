@@ -8,6 +8,7 @@ import Typography from "@mui/material/Typography";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 
 import ListeInventaire from "./ListeInventaire";
+import Chargement from "./Chargement";
 import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -60,9 +61,15 @@ export default function BouteilleInventaire(props) {
    */
   const { window } = props;
   const [open, setOpen] = React.useState(false);
+  /**
+   *  État de la liste d'inventaire
+   */
+  const [listeInventaire, setListeInventaire] = React.useState([]);
+  const [chargementInventaire, setChargementInventaire] = React.useState(false);
+  const [inventaireCharge, setInventaireCharge] = React.useState(false);
 
   const toggleDrawer = (newOpen) => () => {
-    if (newOpen && listeInventaire.length === 0) {
+    if (newOpen && !inventaireCharge && !chargementInventaire) {
       fetchListeInventaire();
     }
     setOpen(newOpen);
@@ -74,14 +81,10 @@ export default function BouteilleInventaire(props) {
   const theme = useTheme();
 
   /**
-   *  État de la liste d'inventaire
-   */
-  const [listeInventaire, setListeInventaire] = React.useState([]);
-
-  /**
    * fetch la liste des inventaires d'une bouteille (à l'ouverture du tiroir)
    */
   async function fetchListeInventaire() {
+    setChargementInventaire(true);
     await fetch(
       props.URI +
         "/" +
@@ -102,11 +105,15 @@ export default function BouteilleInventaire(props) {
         throw response;
       })
       .then((data) => {
-        setListeInventaire(data);
+        setListeInventaire(Array.isArray(data) ? data : []);
       })
       .catch((error) => {
-        console.erro("Error fetching data: ", error);
+        console.error("Error fetching data: ", error);
         props.setError(error);
+      })
+      .finally(() => {
+        setInventaireCharge(true);
+        setChargementInventaire(false);
       });
   }
   return (
@@ -193,35 +200,45 @@ export default function BouteilleInventaire(props) {
             </IconButton>
           </DrawerHeader>
           <Divider />
-          <Typography
-            sx={{
-              p: 4,
-              color: "text.secondary",
-              fontFamily: "raleway",
-              fontSize: "12px",
-            }}
-          >
-            Cette bouteille est dans {listeInventaire.length} de vos celliers{" "}
-          </Typography>
-          <StyledBox
-            sx={{
-              px: 2,
-              pb: 2,
-              height: "100%",
-              overflow: "auto",
-            }}
-          >
-            <ListeInventaire
-              listeInventaire={listeInventaire}
-              cellier={props.cellier}
-              setOpen={setOpen}
-              fetchVins={props.fetchVins}
-              fetchNomCellier={props.fetchNomCellier}
-              gererCellier={props.gererCellier}
-              bouteilleId={props.bouteilleInventaire?.id ?? props.id}
-              gererCible={props.gererCible}
+          {!inventaireCharge ? (
+            <Chargement
+              className="chargement--tiroir"
+              message="Chargement des stocks…"
             />
-          </StyledBox>
+          ) : (
+            <>
+              <Typography
+                sx={{
+                  p: 4,
+                  color: "text.secondary",
+                  fontFamily: "raleway",
+                  fontSize: "12px",
+                }}
+              >
+                Cette bouteille est dans {listeInventaire.length} de vos
+                celliers{" "}
+              </Typography>
+              <StyledBox
+                sx={{
+                  px: 2,
+                  pb: 2,
+                  height: "100%",
+                  overflow: "auto",
+                }}
+              >
+                <ListeInventaire
+                  listeInventaire={listeInventaire}
+                  cellier={props.cellier}
+                  setOpen={setOpen}
+                  fetchVins={props.fetchVins}
+                  fetchNomCellier={props.fetchNomCellier}
+                  gererCellier={props.gererCellier}
+                  bouteilleId={props.bouteilleInventaire?.id ?? props.id}
+                  gererCible={props.gererCible}
+                />
+              </StyledBox>
+            </>
+          )}
         </SwipeableDrawer>
       </Root>
       )}
