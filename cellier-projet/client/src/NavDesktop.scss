@@ -16,25 +16,50 @@
 			width: 120px;
 		}
 
-		.iconeAddBottle {
-			border: 1px solid #f1ab50;
-			border-radius: 120px;
-			height:50px;
-			margin-right: 25px;
-			&:hover {
-				border: 1px solid #d3d7dd;
-				scale: 1.02;
+		.actionMenu {
+			align-items: center;
+			display: flex;
+			gap: 16px;
+
+			> a {
+				border-radius: 120px;
+				display: inline-flex;
+				line-height: 0;
+				transition: transform 0.15s ease;
+			}
+
+			> a:hover {
+				transform: scale(1.04);
+			}
+
+			> a:hover .iconeAddBottle {
+				background-color: rgba(241, 171, 80, 0.18);
+				border-color: #f1ab50;
+			}
+
+			> a:focus-visible .iconeAddBottle {
+				background-color: rgba(241, 171, 80, 0.22);
+				border-color: #f1ab50;
+				outline: 2px solid rgba(241, 171, 80, 0.45);
+				outline-offset: 2px;
 			}
 		}
-	
-		.actionMenu {
-			display: flex;
+
+		.iconeAddBottle {
+			background-color: transparent;
+			border: 1px solid #f1ab50;
+			border-radius: 120px;
+			display: block;
+			height: 50px;
+			transition: background-color 0.15s ease, border-color 0.15s ease;
 		}
 	
 		.navDesktop--container-profil {
 			align-items: center;
 			cursor: pointer;
 			display: flex;
+			gap: 12px;
+			padding: 8px 0;
 
 			p {
 				margin: 0;
@@ -43,14 +68,28 @@
 				font-family: Raleway;
 				font-size: 14px;
 				font-weight: 500;
+				text-decoration: underline solid transparent;
+				text-underline-offset: 5px;
+				transition: color 0.15s ease, text-decoration-color 0.15s ease;
 			}
 
 			img {
-				margin-right: 15px;
+				display: block;
 			}
 
 			&:hover p {
 				color: #cc4240;
+				text-decoration-color: #cc4240;
+			}
+
+			&:focus-visible {
+				outline: 1px solid rgba(204, 66, 64, 0.35);
+				outline-offset: 4px;
+
+				p {
+					color: #cc4240;
+					text-decoration-color: #cc4240;
+				}
 			}
 		}
 	}

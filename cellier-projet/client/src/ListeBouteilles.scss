@@ -49,30 +49,3 @@
 .ListeBouteille--cellier-nom {
 	padding-bottom: 50px;
 }
-
-.retour {
-	background-color: transparent;
-	border: 1px solid rgba(243, 245, 235, 0.55);
-	border-radius: 4px;
-	color: #f3f5eb;
-	font-family: Alata;
-	margin-bottom: 5px;
-	padding: 10px 10px 10px 10px;
-	text-transform: uppercase;
-	transition: background-color 0.15s ease, border-color 0.15s ease;
-
-	&:hover {
-		background-color: rgba(204, 66, 64, 0.12);
-		border-color: #cc4240;
-		cursor: pointer;
-	}
-
-	img {
-		display: inline-block;
-		padding-right: 10px;
-	}
-
-	@media only screen and (min-width: 768px) {
-		margin-top: 0;
-	}
-}
