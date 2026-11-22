@@ -1,21 +1,18 @@
 {
-  "name": "AlpineCraft",
+  "name": "Mon Vino",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
   "workspaceFolder": "/workspaces/alpinecraft",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [3000, 80, 3306, 8080],
+  "forwardPorts": [3000, 80, 3306],
   "portsAttributes": {
     "80": {
-      "label": "Nested sites (Apache: / + /monvino + /api-php)",
+      "label": "Apache (/monvino + /api-php)",
       "onAutoForward": "notify"
     },
     "3000": {
       "label": "React Mon Vino (npm start → /monvino/)",
       "onAutoForward": "notify"
-    },
-    "8080": {
-      "label": "Portfolio live (trunk serve)"
     },
     "3306": {
       "label": "MariaDB"

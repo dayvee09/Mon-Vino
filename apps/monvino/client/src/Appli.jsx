@@ -64,7 +64,8 @@ function ProfilRedirect({ emailUtilisateur }) {
  */
 // In Docker/dev, same-origin nested path; setupProxy.js forwards to Apache :80.
 const DEV_API_URI = process.env.REACT_APP_API_URI || "/api-php";
-const PROD_API_URI = "https://alpinecraft.cc/api-php/index.php";
+// Prefer REACT_APP_API_URI in .env.production; same-origin default for nested deploys.
+const PROD_API_URI = "/api-php/index.php";
 
 function normalizeUtilisateur(data) {
   if (!data) return null;
