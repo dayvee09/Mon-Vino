@@ -1,17 +1,21 @@
 {
-  "name": "Monvino",
+  "name": "AlpineCraft",
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-  "workspaceFolder": "/workspaces/monvino",
+  "workspaceFolder": "/workspaces/alpinecraft",
   "shutdownAction": "stopCompose",
-  "forwardPorts": [3000, 80, 3306],
+  "forwardPorts": [3000, 80, 3306, 8080],
   "portsAttributes": {
-    "3000": {
-      "label": "React (client)",
-      "onAutoForward": "openBrowser"
-    },
     "80": {
-      "label": "PHP API (Apache)"
+      "label": "Nested sites (Apache: / + /monvino + /api-php)",
+      "onAutoForward": "notify"
+    },
+    "3000": {
+      "label": "React Mon Vino (npm start → /monvino/)",
+      "onAutoForward": "notify"
+    },
+    "8080": {
+      "label": "Portfolio live (trunk serve)"
     },
     "3306": {
       "label": "MariaDB"
@@ -21,6 +25,10 @@
   "postStartCommand": "bash .devcontainer/post-start.sh",
   "remoteEnv": {
     "BROWSER": "none",
+    "HOST": "0.0.0.0",
+    "WDS_SOCKET_PORT": "0",
+    "CHOKIDAR_USEPOLLING": "true",
+    "WATCHPACK_POLLING": "true",
     "DB_HOST": "db",
     "DB_NAME": "pw2",
     "DB_USER": "monvino"

@@ -4,7 +4,20 @@ Shared defaults (versioned): `Dockerfile`, `devcontainer.json`, scripts, Apache 
 
 Local-only (gitignored): `docker-compose.yml` — your credentials and overrides.
 
-Base image uses **Node 22**; `post-create.sh` then installs the version from the repo `.nvmrc` (currently Node 26 LTS).
+Base image uses **Node 22**; `post-create.sh` then installs the version from the repo `.nvmrc`.
+
+## Nested URLs (mirrors production)
+
+Apache on port **80** matches `alpinecraft.cc`:
+
+| URL (in container / forwarded) | Serves |
+|--------------------------------|--------|
+| `http://localhost/` | AlpineCraft portfolio (`apps/portfolio/dist`) |
+| `http://localhost/monvino/` | Mon Vino React (proxied to CRA on `:3000`) |
+| `http://localhost/api-php/` | PHP API (`apps/monvino/api-php`) |
+
+Direct CRA (hot reload): `http://localhost:3000/monvino/`  
+Portfolio live reload: `cd apps/portfolio && trunk serve` → `http://localhost:8080/`
 
 ## First-time setup (forks)
 
@@ -15,8 +28,6 @@ cp .devcontainer/docker-compose.example.yml .devcontainer/docker-compose.yml
 # then set DB_PASSWORD / MYSQL_ROOT_PASSWORD in the gitignored compose file
 ```
 
-The example ships with non-secret placeholders (`change-me`). After copying, you can change passwords in the gitignored `docker-compose.yml` only.
-
 Then **F1 → Dev Containers: Reopen in Container**.
 
 `DB_PASSWORD` comes from your local Compose file (not from `devcontainer.json`).
@@ -25,9 +36,21 @@ Apache starts automatically in two places:
 1. when the `app` container starts (`docker-compose` `command`)
 2. again when the IDE attaches (`postStartCommand` → `post-start.sh`)
 
-Ports: React `3000`, Apache/PHP API `80`, MariaDB `3306` (forwarded into Cursor).
+Ports: React `3000`, Apache nested sites `80`, portfolio `8080`, MariaDB `3306`.
+
+After attach, start Mon Vino:
+
+```bash
+cd apps/monvino/client && npm start
+# Prefer http://localhost:3000/monvino/ for Fast Refresh (HMR).
+# http://localhost/monvino/ works too (Apache proxy).
+```
+
+On WSL/Docker, file watching uses polling (`CHOKIDAR_USEPOLLING` / `WATCHPACK_POLLING`) so saves hot-reload without restarting `npm start`.
 
 If the API ever returns HTTP 504: `sudo service apache2 restart`
+
+If you change `apache-monvino.conf` or the Dockerfile, rebuild the container image (**Dev Containers: Rebuild Container**).
 
 ## Reopen locally + tear down
 
@@ -45,6 +68,6 @@ To also wipe MariaDB data:
 docker compose -f .devcontainer/docker-compose.yml down -v
 ```
 
-The Compose project name is fixed as `monvino_devcontainer` so these commands match what Dev Containers started.
+The Compose project name is fixed as `alpinecraft_devcontainer` so these commands match what Dev Containers started.
 
-Database seed on first start: `cellier-projet/database/monvino-starter.sql`.
+Database seed on first start: `apps/monvino/database/monvino-starter.sql`.

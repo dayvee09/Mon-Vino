@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd /workspaces/monvino
+cd /workspaces/alpinecraft
 
 # Prefer the Node version pinned in .nvmrc (latest LTS when possible).
 if [ -s "$NVM_DIR/nvm.sh" ]; then
@@ -12,8 +12,8 @@ if [ -s "$NVM_DIR/nvm.sh" ]; then
   echo "Using Node $(node -v) / npm $(npm -v)"
 fi
 
-ACCESBD="cellier-projet/api-php/modeles/AccesBd.cls.php"
-TEMPLATE="cellier-projet/api-php/modeles/AccesBd-template.cls.php"
+ACCESBD="apps/monvino/api-php/modeles/AccesBd.cls.php"
+TEMPLATE="apps/monvino/api-php/modeles/AccesBd-template.cls.php"
 
 if [ ! -f "$ACCESBD" ]; then
   cp "$TEMPLATE" "$ACCESBD"
@@ -25,5 +25,22 @@ if [ ! -f "$ACCESBD" ]; then
   echo "Created ${ACCESBD} for the dev container database."
 fi
 
-cd cellier-projet/client
+# Apache DocumentRoot is apps/portfolio/dist. Ensure it exists before Apache starts.
+mkdir -p apps/portfolio/dist
+if [ ! -f apps/portfolio/dist/index.html ]; then
+  cat > apps/portfolio/dist/index.html <<'EOF'
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>AlpineCraft</title></head>
+<body>
+  <p>Portfolio build missing. From the repo root run <code>./scripts/build-portfolio.sh</code>
+  (or <code>cd apps/portfolio && trunk serve</code> for live reload on :8080).</p>
+  <p><a href="/monvino/">Mon Vino</a> · <a href="/api-php/">API</a></p>
+</body>
+</html>
+EOF
+  echo "Created placeholder apps/portfolio/dist/index.html (run build-portfolio.sh for the real site)."
+fi
+
+cd apps/monvino/client
 npm install
