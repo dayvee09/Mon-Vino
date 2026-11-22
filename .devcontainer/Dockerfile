@@ -14,7 +14,7 @@ RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
         g++ \
     && apt-get clean -y && rm -rf /var/lib/apt/lists/*
 
-RUN a2enmod rewrite \
+RUN a2enmod rewrite proxy proxy_http proxy_wstunnel headers \
     && echo "ServerName localhost" >> /etc/apache2/apache2.conf
 
 COPY apache-monvino.conf /etc/apache2/sites-available/monvino.conf

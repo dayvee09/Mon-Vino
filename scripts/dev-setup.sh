@@ -3,8 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-API="$ROOT/cellier-projet/api-php"
-CLIENT="$ROOT/cellier-projet/client"
+API="$ROOT/apps/monvino/api-php"
+CLIENT="$ROOT/apps/monvino/client"
 DEVCONTAINER="$ROOT/.devcontainer"
 
 # Local Docker Compose (gitignored) — default for forks / Dev Containers.

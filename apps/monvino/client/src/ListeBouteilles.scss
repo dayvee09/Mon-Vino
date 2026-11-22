@@ -1,0 +1,147 @@
+.Appli--container {
+	.fin--liste {
+		cursor: default;
+		margin: auto;
+		padding: 50px 15px 15px 15px;
+		width: 100px;
+	}
+
+	.fin--liste.cliquable {
+		cursor: pointer;
+		text-decoration: underline;
+	}
+}
+
+.ListeBouteille--grid {
+	display: grid;
+	gap: 20px;
+	grid-template-columns: repeat(2, 1fr);
+	list-style: none;
+	width: 100%;
+
+	@media only screen and (min-width: 940px) {
+		grid-template-columns: repeat(3, 1fr);
+	}
+	@media only screen and (min-width: 1200px) {
+		grid-template-columns: repeat(4, 1fr);
+	}
+}
+
+.ListeBouteilles--default {
+	h1 {
+		font-size: 20px;
+		padding-top: 0;
+	}
+
+	.ListeBouteille--default-button {
+		color: #152440;
+		font-size: 15px;
+		text-decoration: underline 1px;
+		text-underline-offset: 5px;
+
+		&:hover {
+			color: #cc4240;
+			cursor: pointer;
+		}
+	}
+}
+
+.ListeBouteille--cellier-nom {
+	padding-bottom: 50px;
+}
+
+.ListeBouteilles--empty {
+	align-items: center;
+	background: linear-gradient(180deg, #f7f4ec 0%, #f3f5eb 100%);
+	border: 1px solid rgba(21, 36, 64, 0.08);
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	margin: 0 auto;
+	max-width: 420px;
+	padding: 40px 28px;
+	text-align: center;
+
+	&__icone {
+		display: block;
+		height: 88px;
+		margin-bottom: 4px;
+		width: 88px;
+	}
+
+	&__titre {
+		color: #152440;
+		font-family: Alata, sans-serif;
+		font-size: 1.25rem;
+		font-weight: 400;
+		letter-spacing: 0.02em;
+		margin: 0;
+	}
+
+	&__texte {
+		color: rgba(21, 36, 64, 0.72);
+		font-family: Raleway, sans-serif;
+		font-size: 0.95rem;
+		line-height: 1.45;
+		margin: 0 0 8px;
+		max-width: 32ch;
+	}
+
+	&__actions {
+		align-items: center;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 12px;
+		justify-content: center;
+	}
+
+	&__cta {
+		background-color: #152440;
+		border: 1px solid #152440;
+		border-radius: 4px;
+		color: #f3f5eb;
+		cursor: pointer;
+		display: inline-block;
+		font-family: Alata, sans-serif;
+		font-size: 12px;
+		letter-spacing: 0.02em;
+		padding: 12px 22px;
+		text-decoration: none;
+		text-transform: uppercase;
+		transition: background-color 0.15s ease, border-color 0.15s ease,
+			color 0.15s ease;
+
+		&:hover {
+			background-color: #f1ab50;
+			border-color: #f1ab50;
+			color: #152440;
+		}
+
+		&:focus-visible {
+			outline: 2px solid rgba(241, 171, 80, 0.55);
+			outline-offset: 2px;
+		}
+	}
+
+	&__lien {
+		background: transparent;
+		border: none;
+		color: #152440;
+		cursor: pointer;
+		font-family: Raleway, sans-serif;
+		font-size: 0.9rem;
+		padding: 8px 4px;
+		text-decoration: underline;
+		text-underline-offset: 3px;
+
+		&:hover {
+			color: #cc4240;
+		}
+	}
+
+	&--filtre {
+		background: #f3f5eb;
+		max-width: 460px;
+	}
+}

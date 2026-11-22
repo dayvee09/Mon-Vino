@@ -1,35 +1,42 @@
-# Déploiement Mon Vino en production
+# Déploiement production / LAN
 
-Ce guide décrit comment exporter le projet, le déployer sur un serveur de production, et éviter d’exposer des fichiers sensibles sur GitHub.
+Ce guide décrit comment construire les apps, les déployer (manuellement ou via SSH), et éviter d’exposer des secrets.
 
 ## Architecture
 
-| Composant | Dossier | Rôle |
-|-----------|---------|------|
-| Frontend React | `cellier-projet/client/build` → `www/` dans l’archive | Interface utilisateur (fichiers statiques) |
-| API PHP | `cellier-projet/api-php` | Backend REST JSON |
-| Base de données | `cellier-projet/database/monvino-starter.sql` | Schéma + données de démo initiales |
-| Auth | AWS Cognito via `aws-exports.js` | Connexion utilisateurs |
+| Composant | Dossier repo | Rôle |
+|-----------|--------------|------|
+| Portfolio | `apps/portfolio` | Site AlpineCraft (Rust → WASM) |
+| Frontend React | `apps/monvino/client` → `www/` dans l’archive | Interface Mon Vino |
+| API PHP | `apps/monvino/api-php` | Backend REST JSON |
+| Base de données | `apps/monvino/database/monvino-starter.sql` | Schéma + démo |
 
-URL de production actuelle de l’API (dans le code) : `https://monvino.app/api-php/index.php`
+| URL | Fichiers sur le serveur |
+|-----|-------------------------|
+| `/` | `/var/www/html/alpinecraft/` |
+| `/monvino/` | `/var/www/html/monvino/www/` |
+| `/api-php/` | `/var/www/html/monvino/api-php/` |
+
+URL de production de l’API : `https://alpinecraft.cc/api-php/index.php`  
+Détail Apache : **[apps/portfolio/DEPLOY.md](./apps/portfolio/DEPLOY.md)**.
+
+LAN (exemple) : `http://192.168.0.105/` avec la même arborescence.
 
 ---
 
 ## 1. Préparer la machine de développement
 
-### Installation initiale
-
 ```bash
-cd /chemin/vers/monvino
+cd /chemin/vers/alpinecraft
 chmod +x scripts/*.sh .githooks/pre-commit
 ./scripts/dev-setup.sh
 ```
 
 Cela crée (s’ils manquent) :
 
-- `cellier-projet/api-php/config.local.php` — identifiants MySQL (gitignored)
-- `cellier-projet/api-php/modeles/AccesBd.cls.php` — copie du template (gitignored)
-- `cellier-projet/client/src/aws-exports.js` — config Cognito (gitignored)
+- `apps/monvino/api-php/config.local.php` — identifiants MySQL (gitignored)
+- `apps/monvino/api-php/modeles/AccesBd.cls.php` — copie du template (gitignored)
+- `apps/monvino/client/src/aws-exports.js` — config Cognito (gitignored)
 - le hook Git `pre-commit` pour bloquer les secrets
 
 ### Fichiers à ne jamais committer
@@ -40,23 +47,10 @@ Cela crée (s’ils manquent) :
 | `config.local.php` | Identifiants base de données |
 | `.env`, `.env.production`, `.env.*.local` | Variables d’environnement |
 | `src/aws-exports.js` | IDs Cognito / OAuth |
-| `amplify/team-provider-info.json` | Compte AWS, ARNs |
-| `amplify/#current-cloud-backend/` | CloudFormation + secrets OAuth Amplify |
-| `amplify/.config/local-*` | Chemins machine locale |
+| Amplify local / cloud-backend | Compte AWS, secrets OAuth |
 | `.devcontainer/docker-compose.yml` | Mots de passe MariaDB locaux |
-| `cellier-projet/database/*.sql` (sauf `monvino-starter.sql`) | Dumps SQL personnels / production |
-
-### Retirer des fichiers déjà suivis par Git
-
-Si le dépôt a déjà poussé des fichiers sensibles :
-
-```bash
-./scripts/untrack-sensitive.sh
-git add .gitignore
-git commit -m "Stop tracking Amplify and Cognito local config"
-```
-
-Puis régénérez `aws-exports.js` localement (`amplify pull` ou copie depuis la console AWS).
+| `deploy.env` | Hôte / utilisateur SSH locaux |
+| `apps/monvino/database/*.sql` (sauf `monvino-starter.sql`) | Dumps SQL personnels |
 
 ### Activer la protection Git
 
@@ -64,142 +58,121 @@ Puis régénérez `aws-exports.js` localement (`amplify pull` ou copie depuis la
 ./scripts/setup-git-hooks.sh
 ```
 
-Le hook `pre-commit` refuse tout commit contenant des chemins sensibles connus.
-
 ---
 
-## 2. Créer l’archive de production
-
-### Configurer le build frontend
+## 2. Construire les archives
 
 ```bash
-cp cellier-projet/client/.env.production.example cellier-projet/client/.env.production
-# Éditer REACT_APP_API_URI pour votre domaine
-```
+# Portfolio seul
+./scripts/build-portfolio.sh
 
-Vérifier que `cellier-projet/client/src/aws-exports.js` existe et que les URLs OAuth `redirectSignIn` / `redirectSignOut` pointent vers votre domaine de production (console AWS Cognito).
+# Mon Vino seul
+cp apps/monvino/client/.env.production.example apps/monvino/client/.env.production
+# Éditer REACT_APP_API_URI si besoin
+./scripts/build-monvino.sh
 
-### Générer le tarball
-
-```bash
-./scripts/build-export.sh
+# Les deux
+./scripts/build-all.sh
 ```
 
 Résultat dans `dist/` :
 
-- `monvino-release-YYYYMMDD-HHMMSS/` — dossier déployable
-- `monvino-release-YYYYMMDD-HHMMSS.tar.gz` — archive à transférer
+- `portfolio-release-YYYYMMDD-HHMMSS/` (+ `.tar.gz`)
+- `monvino-release-YYYYMMDD-HHMMSS/` (+ `.tar.gz`)
 
-L’archive **ne contient pas** : `node_modules`, `.env`, `config.local.php`, ni `AccesBd.cls.php` avec secrets locaux.
+Les archives **ne contiennent pas** : `node_modules`, `.env`, `config.local.php`, ni secrets locaux.
 
 ---
 
 ## 3. Déployer sur le serveur
 
-### Prérequis serveur
+### Option A — Script SSH (recommandé, sans secrets dans Git)
 
-- PHP 7.4+ avec extensions `pdo_mysql`, `json`
-- MySQL ou MariaDB 10.x
-- Apache (mod_rewrite) ou Nginx
-- HTTPS recommandé (Cognito OAuth)
-
-### Transfert
+Aucune clé ni mot de passe n’est stocké dans le dépôt. Le script utilise **votre agent SSH / `~/.ssh`**.
 
 ```bash
-scp dist/monvino-release-*.tar.gz user@serveur:/tmp/
-ssh user@serveur
-cd /var/www
-sudo tar -xzf /tmp/monvino-release-*.tar.gz
-sudo mv monvino-release-* monvino
+# Une fois : clé SSH vers le serveur LAN
+ssh-keygen -t ed25519   # si besoin
+ssh-copy-id votreuser@192.168.0.105
+
+cp deploy.env.example deploy.env
+# Éditer DEPLOY_USER=votreuser (DEPLOY_HOST=192.168.0.105 déjà)
+
+./scripts/build-all.sh
+./scripts/deploy.sh              # les deux apps
+./scripts/deploy.sh portfolio    # ou une seule
+./scripts/deploy.sh monvino
 ```
 
-### Base de données
+`deploy.sh` **préserve** `api-php/config.local.php` déjà présent sur le serveur.
+
+### Option B — Manuel (scp / rsync)
+
+```bash
+scp dist/portfolio-release-*.tar.gz user@192.168.0.105:/tmp/
+scp dist/monvino-release-*.tar.gz user@192.168.0.105:/tmp/
+ssh user@192.168.0.105
+```
+
+Sur le serveur :
+
+```bash
+sudo mkdir -p /var/www/html/alpinecraft /var/www/html/monvino
+sudo tar -xzf /tmp/portfolio-release-*.tar.gz -C /tmp
+sudo rsync -a --delete /tmp/portfolio-release-*/ /var/www/html/alpinecraft/
+
+sudo tar -xzf /tmp/monvino-release-*.tar.gz -C /tmp
+# Ne pas écraser config.local.php
+sudo rsync -a --delete /tmp/monvino-release-*/www/ /var/www/html/monvino/www/
+sudo rsync -a --delete --exclude=config.local.php \
+  /tmp/monvino-release-*/api-php/ /var/www/html/monvino/api-php/
+```
+
+### Base de données (première fois)
 
 ```bash
 mysql -u root -p -e "CREATE DATABASE pw2 CHARACTER SET utf8mb4;"
-mysql -u root -p pw2 < /var/www/monvino/database/monvino-starter.sql
+mysql -u root -p pw2 < /var/www/html/monvino/database/monvino-starter.sql
 ```
 
-Créer un utilisateur MySQL dédié (éviter `root` en production).
-
-### Configuration API
+### Configuration API (première fois)
 
 ```bash
-cd /var/www/monvino/api-php
+cd /var/www/html/monvino/api-php
 sudo cp config.local.example.php config.local.php
 sudo nano config.local.php   # db_host, db_name, db_user, db_pass
 ```
 
-`AccesBd.cls.php` est déjà inclus dans l’archive (généré depuis le template) et lit `config.local.php`.
+### Apache
 
-### Apache (exemple)
+Voir l’exemple vhost dans [apps/portfolio/DEPLOY.md](./apps/portfolio/DEPLOY.md).
 
-```apache
-<VirtualHost *:443>
-    ServerName monvino.app
-    DocumentRoot /var/www/monvino/www
+### Vérifications
 
-    <Directory /var/www/monvino/www>
-        Options -Indexes +FollowSymLinks
-        AllowOverride All
-        Require all granted
-    </Directory>
-
-    Alias /api-php /var/www/monvino/api-php
-    <Directory /var/www/monvino/api-php>
-        AllowOverride All
-        Require all granted
-    </Directory>
-
-    # React Router — renvoyer les routes vers index.html
-    FallbackResource /index.html
-</VirtualHost>
-```
-
-Ajuster selon votre hébergeur (cPanel, WebDev, etc.).
-
-### Nginx (extrait)
-
-```nginx
-root /var/www/monvino/www;
-index index.html;
-
-location /api-php/ {
-    try_files $uri $uri/ /api-php/index.php?$query_string;
-}
-
-location / {
-    try_files $uri $uri/ /index.html;
-}
-```
-
-### Vérifications post-déploiement
-
-1. `https://votredomaine.com` — l’interface React s’affiche
-2. `https://votredomaine.com/api-php/utilisateurs` (ou route test) — JSON, pas d’erreur 500
-3. Connexion Cognito — redirects OAuth vers le bon domaine
-4. `config.local.php` et `.env.production` **absents** du dépôt Git public
+1. `http://192.168.0.105/` ou `https://alpinecraft.cc/` — portfolio
+2. `…/monvino/` — React Mon Vino
+3. `…/api-php/` — JSON, pas d’erreur 500
+4. Cognito — redirects vers `…/monvino/`
+5. `config.local.php`, `.env.production`, `deploy.env` **absents** du dépôt Git
 
 ---
 
-## 4. Mises à jour (re-déploiement)
+## 4. Mises à jour
 
-1. Sur la machine de dev : `git pull`, config à jour, `./scripts/build-export.sh`
-2. Sur le serveur : sauvegarder la BD, extraire la nouvelle archive
-3. Ne pas écraser `api-php/config.local.php` (le conserver)
-4. Remplacer `www/` par le nouveau build React
-5. Remplacer le code PHP sauf `config.local.php`
+1. Dev : `git pull`, `./scripts/build-all.sh`, `./scripts/deploy.sh` (ou scp manuel)
+2. Ne pas écraser `api-php/config.local.php` sur le serveur
+3. Remplacer `www/` et le code PHP sauf la config locale
 
 ---
 
-## 5. Checklist sécurité GitHub
+## 5. Checklist sécurité
 
-- [ ] `./scripts/setup-git-hooks.sh` exécuté sur chaque poste de dev
-- [ ] `./scripts/untrack-sensitive.sh` si des secrets étaient déjà commités
-- [ ] Aucun fichier listé dans la section « Fichiers à ne jamais committer » dans `git status`
-- [ ] Cognito : URLs de callback production dans la console AWS
-- [ ] Mot de passe MySQL fort, utilisateur dédié
-- [ ] HTTPS actif sur le domaine de production
+- [ ] `./scripts/setup-git-hooks.sh` sur chaque poste
+- [ ] Aucun fichier sensible listé ci-dessus dans `git status`
+- [ ] Cognito : URLs de callback production
+- [ ] MySQL : utilisateur dédié, mot de passe fort
+- [ ] SSH : clé locale, pas de mot de passe dans le repo
+- [ ] HTTPS en production publique
 
 ---
 
@@ -209,6 +182,7 @@ location / {
 |----------|----------|
 | `Configuration manquante` (API) | Créer `api-php/config.local.php` sur le serveur |
 | Erreur 500 base de données | Vérifier host/user/pass dans `config.local.php` |
-| Auth Cognito échoue | Vérifier `aws-exports.js` au **build** (pas seulement sur le serveur) |
-| Routes React 404 au refresh | Configurer `FallbackResource` ou `try_files … /index.html` |
-| pre-commit bloque un commit | `git reset HEAD -- <fichier>` et ajouter au `.gitignore` |
+| Auth Cognito échoue | Vérifier `aws-exports.js` au **build** |
+| Routes React 404 au refresh | `FallbackResource` / `try_files … /index.html` |
+| `deploy.sh` refuse la connexion | `ssh-copy-id user@192.168.0.105` puis réessayer |
+| pre-commit bloque un commit | Retirer le fichier de l’index et l’ajouter au `.gitignore` |

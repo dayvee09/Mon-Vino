@@ -6,7 +6,7 @@
 #   DB_PASSWORD=... MYSQL_ROOT_PASSWORD=... docker compose -f .devcontainer/docker-compose.yml up -d
 #
 # Placeholders below are intentional — set real values only in the gitignored docker-compose.yml.
-name: monvino_devcontainer
+name: alpinecraft_devcontainer
 
 services:
   app:
@@ -14,7 +14,7 @@ services:
       context: .
       dockerfile: Dockerfile
     volumes:
-      - ..:/workspaces/monvino:cached
+      - ..:/workspaces/alpinecraft:cached
     # Keep the container alive; Apache is started here and again on IDE attach (postStart).
     command: bash -lc "sudo service apache2 start || true; exec sleep infinity"
     depends_on:
@@ -36,7 +36,7 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
     volumes:
       - mysql-data:/var/lib/mysql
-      - ../cellier-projet/database/monvino-starter.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ../apps/monvino/database/monvino-starter.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
     ports:
       - "3306:3306"
     healthcheck:
