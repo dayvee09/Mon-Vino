@@ -146,6 +146,13 @@ export default function FrmAjoutBouteille(props) {
    * État de la navigation (sert à redirection)
    */
   const navigate = useNavigate();
+  const [ajoutEnCours, setAjoutEnCours] = useState(false);
+
+  const TYPE_LABELS = {
+    1: "Vin rouge",
+    2: "Vin blanc",
+    3: "Vin rose",
+  };
 
   useEffect(() => {
     if (!props.URI) return;
@@ -196,17 +203,38 @@ export default function FrmAjoutBouteille(props) {
 
   useEffect(() => {
     if (!props.URI || vinCellier === "" || !Number.isFinite(vinCellier)) return;
-    fetch(props.URI + `/cellier/${vinCellier}/vins`)
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
+    let cancelled = false;
+
+    async function loadCellierVins() {
+      if (props.fetchVins) {
+        const result = await props.fetchVins(vinCellier, { full: true });
+        if (cancelled) return;
+        if (result?.ok) {
+          setVinsTest(Array.isArray(result.data) ? result.data : []);
         }
-        throw response;
-      })
-      .then((data) => {
-        setVinsTest(data);
-      });
-  }, [vinCellier, props.URI]);
+        return;
+      }
+      try {
+        const response = await fetch(
+          props.URI + `/cellier/${vinCellier}/vins`
+        );
+        if (!response.ok) throw response;
+        const data = await response.json();
+        if (!cancelled) {
+          setVinsTest(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error("Error fetching cellar bottles: ", error);
+        }
+      }
+    }
+
+    loadCellierVins();
+    return () => {
+      cancelled = true;
+    };
+  }, [vinCellier, props.URI, props.fetchVins]);
 
   useEffect(() => {
     const resolved = resolveCellierId(props.cellier, props.celliers);
@@ -293,14 +321,20 @@ export default function FrmAjoutBouteille(props) {
   /**
    * Ajouter une nouvelle bouteille à la BD
    * Route API: localhost/PW2/cellier-projet/api-php/cellier/3/vins
+   *
+   * After POST: update local cellar cache immediately, navigate, then soft-refresh
+   * in the background (no blocking force refetch).
    */
   async function fetchAjouterVin() {
-    // les données（payload） à ajouter pour l'importation du SAQ, servi au table 'vino__bouteille_has_vino__cellier', le key "personnalise" = 0
+    if (ajoutEnCours || !props.URI || vinCellier === "") return;
+    setAjoutEnCours(true);
+
+    const cellierId = parseInt(vinCellier, 10);
     let formData = {};
     if (btnState === false) {
       formData = {
         vino__bouteille_id: value.id,
-        vino__cellier_id: parseInt(vinCellier),
+        vino__cellier_id: cellierId,
         quantite: vinQuantite,
         date_achat: vinDateAchat,
         garde_jusqua: vinGarde,
@@ -319,41 +353,76 @@ export default function FrmAjoutBouteille(props) {
         url_img: "",
         format: vinFormat,
         vino__type_id: vinType,
-        millesime: parseInt(vinMillesime),
+        millesime: parseInt(vinMillesime, 10) || null,
         personnalise: 1,
-        vino__cellier_id: parseInt(vinCellier),
+        vino__cellier_id: cellierId,
         quantite: vinQuantite,
         date_achat: vinDateAchat,
         garde_jusqua: vinGarde,
         notes: vinNote,
       };
     }
-    // Fetch API d'ajouter une bouteille , soit l'importation du SAQ soit la création personnalisé
-    let fetchAjoutBouteille = await fetch(
-      // "http://localhost/PW2/cellier-projet/api-php" +
-      props.URI + "/" + "cellier" + "/" + vinCellier + "/" + "vins",
-      {
-        method: "POST",
-        body: JSON.stringify(formData),
-      }
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
+
+    try {
+      const response = await fetch(
+        props.URI + "/" + "cellier" + "/" + vinCellier + "/" + "vins",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
         }
-        throw response;
-      })
-      .then((data) => {
-        props.fetchVins(vinCellier, { force: true });
-        props.fetchVinsInventaire?.({ force: true });
-        props.fetchStatsCelliers?.();
-        props.setCellier(vinCellier);
-        navigate(`/cellier/${vinCellier}/vins`, { replace: true });
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        props.setError(error);
-      });
+      );
+      if (!response.ok) throw response;
+      const data = await response.json();
+
+      const typeId = btnState
+        ? String(vinType)
+        : String(value?.vino__type_id ?? vinType);
+      const bottleId = btnState
+        ? data?.id ?? value?.id
+        : value?.id ?? data?.id;
+
+      const bottle = {
+        vino__utilisateur_id: props.id || undefined,
+        id: bottleId,
+        nom: btnState ? vinNom.trim() : value?.nom,
+        image: btnState ? vinImage : value?.image,
+        code_saq: btnState ? "" : value?.code_saq,
+        pays: btnState ? vinPays : value?.pays ?? vinPays,
+        prix_saq: btnState ? vinPrix : value?.prix_saq ?? vinPrix,
+        format: btnState ? vinFormat : value?.format ?? vinFormat,
+        vino__type_id: typeId,
+        type:
+          (btnState ? null : value?.type) ||
+          TYPE_LABELS[typeId] ||
+          TYPE_LABELS[Number(typeId)] ||
+          "",
+        millesime: btnState
+          ? parseInt(vinMillesime, 10) || null
+          : value?.millesime ?? null,
+        personnalise: btnState ? 1 : 0,
+        vino__cellier_id: cellierId,
+        quantite: vinQuantite,
+        date_achat: vinDateAchat,
+        garde_jusqua: vinGarde,
+        notes: vinNote,
+      };
+
+      props.onBouteilleAjoutee?.(bottle);
+      props.setCellier?.(String(cellierId));
+      navigate(`/cellier/${cellierId}/vins`, { replace: true });
+
+      // Background sync — do not block navigation or first paint.
+      props.fetchVins?.(cellierId);
+      props.fetchVinsInventaire?.();
+      props.fetchStatsCelliers?.();
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+      props.setError?.(error);
+      setOpenErr(true);
+      setMessageErr("Impossible d'ajouter la bouteille. Réessayez.");
+      setAjoutEnCours(false);
+    }
   }
   /**
    * gérer l'affichage de l'image de bouteille, l'image par défaut va être à la place de l'image associé si elle n'existe pas
@@ -397,6 +466,7 @@ export default function FrmAjoutBouteille(props) {
                 alt={imageTitre}
                 buttonClassName="fiche-image-btn fiche-image-btn--ajout"
                 enableZoom={!isPlaceholderImage}
+                isPlaceholder={isPlaceholderImage}
               />
             </div>
             {/* Apparaîte uniquement en important de la bouteille du SAQ */}
@@ -732,9 +802,11 @@ export default function FrmAjoutBouteille(props) {
                 >
                   <button
                     className="btn--ajouter"
+                    type="button"
+                    disabled={ajoutEnCours}
                     onClick={gererAjoutBouteille}
                   >
-                    Ajouter
+                    {ajoutEnCours ? "Ajout…" : "Ajouter"}
                   </button>
                 </Box>
               </Grid>

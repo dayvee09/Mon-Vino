@@ -17,6 +17,18 @@ mysql -u root -p pw2 < apps/monvino/database/monvino-starter.sql
 
 En conteneur de développement, MariaDB charge automatiquement `monvino-starter.sql` au premier démarrage.
 
+## Indexes de performance (bases déjà existantes)
+
+Les nouvelles installs via `monvino-starter.sql` incluent déjà les indexes SAQ (`code_saq`, `FULLTEXT(nom)`, `personnalise`).
+
+Sur une base déjà peuplée :
+
+```bash
+mysql -u root -p pw2 < apps/monvino/database/monvino-perf-indexes.sql
+```
+
+(Ignorez les erreurs « Duplicate key name » si les indexes sont déjà présents.)
+
 ## Comptes de démo inclus
 
 | Compte | Courriel | Mot de passe | Rôle |

@@ -22,7 +22,7 @@ export default function ListeInventaire(props) {
     if (idCellier > 0 && props.bouteilleId) {
       props.gererCellier(idCellier);
       props.gererCible(props.bouteilleId);
-      props.fetchVins(idCellier, { force: true });
+      props.fetchVins(idCellier);
       props.fetchNomCellier(idCellier);
       navigate(`/cellier/${idCellier}/vins/${props.bouteilleId}`, {
         replace: true,

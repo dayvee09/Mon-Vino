@@ -2,7 +2,11 @@ import * as React from "react";
 import "./BouteilleInventaire.scss";
 import { styled, useTheme } from "@mui/material/styles";
 import { grey } from "@mui/material/colors";
-import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
+import {
+  resolveBottleImage,
+  isBottlePlaceholder,
+  PlaceholderBouteilleSvg,
+} from "./bottleImage";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
@@ -14,14 +18,14 @@ import IconButton from "@mui/material/IconButton";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import { decodeHtmlEntities } from "./htmlEntities";
+
 const drawerBleeding = 56;
 
+/** Session cache for per-bottle stock drawers (survives remounts within the page). */
+const stocksCache = new Map();
+const stocksInFlight = new Map();
+
 const Root = styled("div")(({ theme }) => ({
-  //   height: "100%",
-  //   backgroundColor:
-  //     theme.palette.mode === "light"
-  //       ? grey[100]
-  //       : theme.palette.background.default,
 }));
 
 const StyledBox = styled(Box)(({ theme }) => ({
@@ -32,7 +36,6 @@ const DrawerHeader = styled("div")(({ theme }) => ({
   display: "flex",
   alignItems: "center",
   padding: theme.spacing(0, 1),
-  // necessary for content to be below app bar
   ...theme.mixins.toolbar,
   justifyContent: "flex-end",
 }));
@@ -47,46 +50,59 @@ const Puller = styled(Box)(({ theme }) => ({
   bottom: "calc(50% - 15px)",
 }));
 
+function cacheKey(userId, bottleId) {
+  return `${userId}:${bottleId}`;
+}
+
 /**
  * La tuile de l'inventaire de bouteille qui fait partie de la liste de l'inventaire de bouteille
  *
- * Permet à l'utilisateur de consulter les stocks de la bouteille en cliquant le boutton
- * Contenant le composant de la liste des celliers dans lequel cette bouteille se trouve
  * @date 2022-09-30
  * @param {*} props
  * @returns {*}
  */
 export default function BouteilleInventaire(props) {
-  /**
-   *  MUI component drawer
-   */
   const { window } = props;
+  const bottleId = props.bouteilleInventaire?.id ?? props.id;
+  const key = cacheKey(props.user_id, bottleId);
+  const cached = stocksCache.get(key);
+
   const [open, setOpen] = React.useState(false);
-  /**
-   *  État de la liste d'inventaire
-   */
-  const [listeInventaire, setListeInventaire] = React.useState([]);
+  const [listeInventaire, setListeInventaire] = React.useState(
+    () => cached || []
+  );
   const [chargementInventaire, setChargementInventaire] = React.useState(false);
-  const [inventaireCharge, setInventaireCharge] = React.useState(false);
+  const [inventaireCharge, setInventaireCharge] = React.useState(
+    () => Boolean(cached)
+  );
 
-  const toggleDrawer = (newOpen) => () => {
-    if (newOpen && !inventaireCharge && !chargementInventaire) {
-      fetchListeInventaire();
-    }
-    setOpen(newOpen);
-  };
-
+  const theme = useTheme();
   const container =
     window !== undefined ? () => window().document.body : undefined;
 
-  const theme = useTheme();
+  const fetchListeInventaire = React.useCallback(async () => {
+    if (!props.URI || !props.user_id || bottleId == null) return;
+    if (stocksCache.has(key)) {
+      const data = stocksCache.get(key);
+      setListeInventaire(data);
+      setInventaireCharge(true);
+      setChargementInventaire(false);
+      return data;
+    }
+    if (stocksInFlight.has(key)) {
+      setChargementInventaire(true);
+      try {
+        const data = await stocksInFlight.get(key);
+        setListeInventaire(data);
+        setInventaireCharge(true);
+        return data;
+      } finally {
+        setChargementInventaire(false);
+      }
+    }
 
-  /**
-   * fetch la liste des inventaires d'une bouteille (à l'ouverture du tiroir)
-   */
-  async function fetchListeInventaire() {
     setChargementInventaire(true);
-    await fetch(
+    const promise = fetch(
       props.URI +
         "/" +
         "user_id" +
@@ -97,26 +113,53 @@ export default function BouteilleInventaire(props) {
         "/" +
         "vin_id" +
         "/" +
-        props.bouteilleInventaire.id
+        bottleId
     )
       .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
+        if (response.ok) return response.json();
         throw response;
       })
       .then((data) => {
-        setListeInventaire(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        stocksCache.set(key, list);
+        return list;
       })
       .catch((error) => {
         console.error("Error fetching data: ", error);
-        props.setError(error);
+        props.setError?.(error);
+        return [];
       })
       .finally(() => {
-        setInventaireCharge(true);
-        setChargementInventaire(false);
+        stocksInFlight.delete(key);
       });
-  }
+
+    stocksInFlight.set(key, promise);
+    try {
+      const list = await promise;
+      setListeInventaire(list);
+      setInventaireCharge(true);
+      return list;
+    } finally {
+      setChargementInventaire(false);
+    }
+  }, [props.URI, props.user_id, bottleId, key, props.setError]);
+
+  const prefetchStocks = React.useCallback(() => {
+    if (stocksCache.has(key) || stocksInFlight.has(key)) return;
+    fetchListeInventaire();
+  }, [key, fetchListeInventaire]);
+
+  const toggleDrawer = (newOpen) => () => {
+    if (newOpen) {
+      if (!inventaireCharge && !chargementInventaire) {
+        fetchListeInventaire();
+      }
+      setOpen(true);
+      return;
+    }
+    setOpen(false);
+  };
+
   return (
     <>
       <div className="BouteilleInventaire" data-quantite="">
@@ -127,17 +170,20 @@ export default function BouteilleInventaire(props) {
               {props.bouteilleInventaire.quantite_total}{" "}
             </p>
           </div>
-          <img
-            loading="lazy"
-            decoding="async"
-            className={
-              isBottlePlaceholder(props.image)
-                ? "bouteille--img-placeholder"
-                : undefined
-            }
-            src={resolveBottleImage(props.image)}
-            alt="bouteille"
-          />
+          {isBottlePlaceholder(props.image) ? (
+            <PlaceholderBouteilleSvg
+              className="bouteille--img-placeholder"
+              role="img"
+              aria-label="bouteille"
+            />
+          ) : (
+            <img
+              loading="eager"
+              decoding="async"
+              src={resolveBottleImage(props.image, { size: "thumb" })}
+              alt="bouteille"
+            />
+          )}
         </div>
         <div className="bouteille--info-container">
           <div className="bouteille--description">
@@ -165,7 +211,14 @@ export default function BouteilleInventaire(props) {
               </p>
             </div>
             <p className="bouteille--info">
-              <button className="action" onClick={toggleDrawer(true)}>
+              <button
+                className="action"
+                type="button"
+                onClick={toggleDrawer(true)}
+                onMouseEnter={prefetchStocks}
+                onFocus={prefetchStocks}
+                onTouchStart={prefetchStocks}
+              >
                 Consulter les stocks
               </button>
             </p>
@@ -173,79 +226,79 @@ export default function BouteilleInventaire(props) {
         </div>
       </div>
       {open && (
-      <Root>
-        <SwipeableDrawer
-          container={container}
-          anchor="left"
-          open={open}
-          onClose={toggleDrawer(false)}
-          onOpen={toggleDrawer(true)}
-          swipeAreaWidth={drawerBleeding}
-          disableSwipeToOpen={true}
-        >
-          <StyledBox
-            sx={{
-              position: "absolute",
-              top: -drawerBleeding,
-              borderTopLeftRadius: 8,
-              borderTopRightRadius: 8,
-              visibility: "visible",
-              right: 0,
-              left: 0,
-            }}
-          ></StyledBox>
-          <Puller />
-          <DrawerHeader>
-            <IconButton onClick={toggleDrawer(false)}>
-              {theme.direction === "ltr" ? (
-                <ChevronLeftIcon />
-              ) : (
-                <ChevronRightIcon />
-              )}
-            </IconButton>
-          </DrawerHeader>
-          <Divider />
-          {!inventaireCharge ? (
-            <Chargement
-              className="chargement--tiroir"
-              message="Chargement des stocks…"
-            />
-          ) : (
-            <>
-              <Typography
-                sx={{
-                  p: 4,
-                  color: "text.secondary",
-                  fontFamily: "raleway",
-                  fontSize: "12px",
-                }}
-              >
-                Cette bouteille est dans {listeInventaire.length} de vos
-                celliers{" "}
-              </Typography>
-              <StyledBox
-                sx={{
-                  px: 2,
-                  pb: 2,
-                  height: "100%",
-                  overflow: "auto",
-                }}
-              >
-                <ListeInventaire
-                  listeInventaire={listeInventaire}
-                  cellier={props.cellier}
-                  setOpen={setOpen}
-                  fetchVins={props.fetchVins}
-                  fetchNomCellier={props.fetchNomCellier}
-                  gererCellier={props.gererCellier}
-                  bouteilleId={props.bouteilleInventaire?.id ?? props.id}
-                  gererCible={props.gererCible}
-                />
-              </StyledBox>
-            </>
-          )}
-        </SwipeableDrawer>
-      </Root>
+        <Root>
+          <SwipeableDrawer
+            container={container}
+            anchor="left"
+            open={open}
+            onClose={toggleDrawer(false)}
+            onOpen={toggleDrawer(true)}
+            swipeAreaWidth={drawerBleeding}
+            disableSwipeToOpen={true}
+          >
+            <StyledBox
+              sx={{
+                position: "absolute",
+                top: -drawerBleeding,
+                borderTopLeftRadius: 8,
+                borderTopRightRadius: 8,
+                visibility: "visible",
+                right: 0,
+                left: 0,
+              }}
+            ></StyledBox>
+            <Puller />
+            <DrawerHeader>
+              <IconButton onClick={toggleDrawer(false)}>
+                {theme.direction === "ltr" ? (
+                  <ChevronLeftIcon />
+                ) : (
+                  <ChevronRightIcon />
+                )}
+              </IconButton>
+            </DrawerHeader>
+            <Divider />
+            {chargementInventaire && !inventaireCharge ? (
+              <Chargement
+                className="chargement--tiroir"
+                message="Chargement des stocks…"
+              />
+            ) : (
+              <>
+                <Typography
+                  sx={{
+                    p: 4,
+                    color: "text.secondary",
+                    fontFamily: "raleway",
+                    fontSize: "12px",
+                  }}
+                >
+                  Cette bouteille est dans {listeInventaire.length} de vos
+                  celliers{" "}
+                </Typography>
+                <StyledBox
+                  sx={{
+                    px: 2,
+                    pb: 2,
+                    height: "100%",
+                    overflow: "auto",
+                  }}
+                >
+                  <ListeInventaire
+                    listeInventaire={listeInventaire}
+                    cellier={props.cellier}
+                    setOpen={setOpen}
+                    fetchVins={props.fetchVins}
+                    fetchNomCellier={props.fetchNomCellier}
+                    gererCellier={props.gererCellier}
+                    bouteilleId={bottleId}
+                    gererCible={props.gererCible}
+                  />
+                </StyledBox>
+              </>
+            )}
+          </SwipeableDrawer>
+        </Root>
       )}
     </>
   );

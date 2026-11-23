@@ -4,6 +4,10 @@ class VinsControleur extends Controleur
     /**
      * Récupérer la collection de toutes les bouteilles à un utilisteur connecté
      *
+     * Query params:
+     * - q: SAQ catalogue search (cellier 1 only)
+     * - limit / offset: pagination for user cellars (returns {items,total,limit,offset})
+     *
      * @param  mixed $params ex:$params['cellier'] qui représent l'id du cellier
      * @return void
      */
@@ -19,7 +23,27 @@ class VinsControleur extends Controleur
                 $this->reponse['corps'] = [];
                 return;
             }
-            $this->reponse['corps'] = $this->modele->rechercherCatalogueSaq($recherche);
+            $limite = isset($params['limit']) ? (int) $params['limit'] : 50;
+            $this->reponse['corps'] = $this->modele->rechercherCatalogueSaq($recherche, $limite);
+            return;
+        }
+
+        $hasLimit = array_key_exists('limit', $params) && $params['limit'] !== '' && $params['limit'] !== null;
+        if ($hasLimit) {
+            $limit = max(1, min((int) $params['limit'], 500));
+            $offset = max(0, (int) ($params['offset'] ?? 0));
+            $pageParams = array_merge($params, [
+                'limit' => $limit,
+                'offset' => $offset,
+            ]);
+            $items = $this->modele->tout($pageParams);
+            $total = $this->modele->compter($params);
+            $this->reponse['corps'] = [
+                'items' => is_array($items) ? $items : [],
+                'total' => $total,
+                'limit' => $limit,
+                'offset' => $offset,
+            ];
             return;
         }
 

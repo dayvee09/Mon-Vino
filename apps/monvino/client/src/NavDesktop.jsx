@@ -20,6 +20,8 @@ export default function NavDesktop({
   username,
   prefetchVinsInventaire,
   prefetchFavorisId,
+  prefetchAjoutBouteille,
+  prefetchProfil,
 }) {
   const profilPath = emailUtilisateur
     ? `/profil/${encodeURIComponent(emailUtilisateur)}`
@@ -32,6 +34,7 @@ export default function NavDesktop({
   const navigate = useNavigate();
 
   function gererMenuContextuel(evt) {
+    prefetchProfil?.();
     setEltAncrage(evt.currentTarget);
   }
 
@@ -53,7 +56,11 @@ export default function NavDesktop({
           <img className="logo" src={Logo} alt="logo-mon-vino"></img>
         </NavLink>
         <div className="actionMenu">
-          <NavLink to="/vins">
+          <NavLink
+            to="/vins"
+            onMouseEnter={prefetchAjoutBouteille}
+            onFocus={prefetchAjoutBouteille}
+          >
             <img
               className="iconeAddBottle"
               src={AddBottleImage}
@@ -67,6 +74,8 @@ export default function NavDesktop({
             aria-haspopup="menu"
             aria-expanded={menuContextuelOuvert}
             onClick={gererMenuContextuel}
+            onMouseEnter={prefetchProfil}
+            onFocus={prefetchProfil}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();

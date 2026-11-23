@@ -10,7 +10,7 @@ import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
 import DateSelecteur from "./DateSelecteur";
-import { resolveBottleImage } from "./bottleImage";
+import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
 import DateSelecteurAnnee from "./DateSelecteurAnnee";
 import MuiDateProvider from "./MuiDateProvider";
 import TextField from "@mui/material/TextField";
@@ -61,6 +61,7 @@ export default function FrmBouteille({
   }
 
   const imageSrc = resolveBottleImage(bouteille?.image);
+  const isPlaceholderImage = isBottlePlaceholder(bouteille?.image);
 
   const description = decodeHtmlEntities(bouteille?.description || "").trim();
   const nomAffiche = decodeHtmlEntities(bouteille?.nom || "");
@@ -86,6 +87,8 @@ export default function FrmBouteille({
             imageSrc={imageSrc}
             title={nomAffiche || "Bouteille"}
             alt={nomAffiche || "bouteille"}
+            isPlaceholder={isPlaceholderImage}
+            enableZoom={!isPlaceholderImage}
           />
 
           <div className="fiche-body">

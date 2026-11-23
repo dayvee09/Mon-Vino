@@ -1,7 +1,7 @@
 import * as React from "react";
 import "./Cellier.scss";
 import { useState, useEffect } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -55,14 +55,24 @@ export default function Cellier(props) {
   const [frmSuppressionOuvert, setFrmSuppressionOuvert] = useState(false);
 
   /**
-   * Gestion du changement de fond au clic du cellier
+   * Ouvre le cellier (toute la carte est cliquable, sauf le menu ⋮).
    */
-  const handleClickCellier = () => {
+  const handleClickCellier = (evt) => {
+    if (evt?.target?.closest?.(".cellier--gestion-dots")) {
+      return;
+    }
     props.prefetchVins?.(props.id);
     navigate(`/cellier/${props.id}/vins`, {
       state: { nom: props.nom },
     });
   };
+
+  function handleKeyOpenCellier(evt) {
+    if (evt.key === "Enter" || evt.key === " ") {
+      evt.preventDefault();
+      handleClickCellier(evt);
+    }
+  }
 
   /**
    * État de l'alerte
@@ -169,21 +179,29 @@ export default function Cellier(props) {
             : "cellier fond-normal"
         }
         data-quantite=""
+        role="link"
+        tabIndex={0}
+        onClick={handleClickCellier}
+        onKeyDown={handleKeyOpenCellier}
+        onMouseEnter={() => {
+          props.prefetchVins?.(props.id);
+          props.prefetchFavorisId?.();
+        }}
+        onFocus={() => {
+          props.prefetchVins?.(props.id);
+          props.prefetchFavorisId?.();
+        }}
       >
         <div className="cellier--gestion">
-          <div
-            className="cellier--gestion-container"
-            onClick={handleClickCellier}
-            onMouseEnter={() => {
-              props.prefetchVins?.(props.id);
-              props.prefetchFavorisId?.();
-            }}
-          >
+          <div className="cellier--gestion-container">
             <p className="cellier--nom">{props.nom}</p>
           </div>
           <MoreVertIcon
             className="cellier--gestion-dots"
-            onClick={gererMenuContextuel}
+            onClick={(evt) => {
+              evt.stopPropagation();
+              gererMenuContextuel(evt);
+            }}
           />
         </div>
         <div className="cellier--description">

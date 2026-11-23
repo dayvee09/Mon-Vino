@@ -9,7 +9,12 @@ body {
   font-family: raleway;
   font-size: 0.7rem;
   margin: auto;
+  // Space for fixed mobile bottom nav only — desktop footer is position:fixed.
   padding-bottom: 50px;
+
+  @media only screen and (min-width: 768px) {
+    padding-bottom: 0;
+  }
 }
 
 button {

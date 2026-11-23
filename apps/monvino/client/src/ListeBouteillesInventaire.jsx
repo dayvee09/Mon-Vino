@@ -123,7 +123,7 @@ function ListeBouteillesInventaire(props) {
     setSearch(e.target.value);
   }
 
-  if (loading) {
+  if (loading && inventaire.length === 0) {
     return (
       <>
         <div className="Appli--entete">
@@ -136,6 +136,9 @@ function ListeBouteillesInventaire(props) {
           </div>
         </div>
         <div className="Appli--container">
+          <div className="liste-cellier--entete">
+            <h1>Mes Bouteilles</h1>
+          </div>
           <Chargement message="Chargement de l'inventaire…" />
         </div>
       </>
