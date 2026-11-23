@@ -100,6 +100,16 @@
 		font-size: 12px;
 		margin-top: 0;
 	}
+
+	// Half-width date pickers must shrink inside MUI Grid on narrow screens
+	.MuiGrid-root {
+		min-width: 0;
+	}
+
+	.DateSelecteur,
+	.DateSelecteurAnnee {
+		max-width: 100%;
+	}
 }
 
 .MuiAutocomplete-popperDisablePortal {
