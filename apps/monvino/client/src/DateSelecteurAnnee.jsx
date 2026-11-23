@@ -32,7 +32,7 @@ export default function DateSelecteurAnnee(props) {
               );
             }}
             slotProps={{
-              textField: { size: "small" },
+              textField: { fullWidth: true, size: "small", helperText: null },
             }}
           />
         </Stack>

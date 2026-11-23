@@ -2,7 +2,10 @@
 	align-items: center;
 	display: flex;
 	flex-wrap: nowrap;
+	max-width: 100%;
+	min-width: 0;
 	text-align: left;
+	width: 100%;
 
 	label {
 		margin-right: 10px;
@@ -10,6 +13,28 @@
 
 	.DateInput {
 		flex: 1;
+		max-width: 100%;
+		min-width: 0;
+		width: 100%;
+
+		.MuiStack-root,
+		.MuiFormControl-root,
+		.MuiTextField-root {
+			max-width: 100%;
+			min-width: 0 !important;
+			width: 100%;
+		}
+
+		.MuiInputBase-root {
+			max-width: 100%;
+			min-width: 0;
+		}
+
+		.MuiInputBase-input {
+			min-width: 0;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
 	}
 }
 
