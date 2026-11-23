@@ -3,26 +3,28 @@ import "./Admin.scss";
 import * as React from "react";
 import { useState, useEffect, useRef } from "react";
 import FrmSaq from "./FrmSaq";
+import Chargement from "./Chargement";
+import Dialog from "@mui/material/Dialog";
+import DialogActions from "@mui/material/DialogActions";
+import DialogContent from "@mui/material/DialogContent";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import { useNavigate } from "react-router-dom";
 
-const TYPES_VIN = ["rouge", "blanc", "rose"];
-const PAGE_SIZE = 96;
-
 /**
- * Gestion de l'admin qui contient principalement la fonction de synchroniser avec la base de données de la SAQ
- * @date 2022-09-30
- * @param {*} props
- * @returns {*}
+ * Gestion de l'admin — synchronisation SAQ en un seul flux serveur (NDJSON).
  */
 export default function Admin(props) {
 	const [nbBouteillesSaq, setNbBouteillesSaq] = useState(0);
 	const [syncActif, setSyncActif] = useState(false);
 	const [prevGo, setPrevGo] = useState(false);
 	const [cycleImportation, setCycleImportation] = useState(0);
+	const [syncMessage, setSyncMessage] = useState("");
+	const [syncDoneCount, setSyncDoneCount] = useState(0);
 	const [frmOuvert, setFrmOuvert] = useState(false);
+	const [syncAnnulee, setSyncAnnulee] = useState(false);
 	const syncEnCours = useRef(false);
+	const abortRef = useRef(null);
 
 	const Alert = React.forwardRef(function Alert(props, ref) {
 		return <MuiAlert elevation={6} ref={ref} variant="filled" {...props} />;
@@ -34,12 +36,7 @@ export default function Admin(props) {
 			return;
 		}
 		setOpenAlert(false);
-	};
-	const handleCloseAlertLoading = (event, reason) => {
-		if (reason === "clickaway") {
-			return;
-		}
-		setOpenAlertLoading(false);
+		setSyncAnnulee(false);
 	};
 	const navigate = useNavigate();
 
@@ -47,62 +44,23 @@ export default function Admin(props) {
 		setFrmOuvert(true);
 	}
 
-	async function fetchPlanSaq(type) {
-		const response = await fetch(props.URI + `/admin/${type}/saq`);
-		if (!response.ok) {
-			throw response;
-		}
-		const data = await response.json();
-		if (typeof data === "number") {
-			return { total: data, tranches: [{ prixMin: null, prixMax: null, total: data }] };
-		}
-		return {
-			total: data.total ?? 0,
-			tranches:
-				Array.isArray(data.tranches) && data.tranches.length > 0
-					? data.tranches
-					: [{ prixMin: null, prixMax: null, total: data.total ?? 0 }],
-		};
-	}
-
-	async function fetchSaq(nouvellePage, nouveauType, tranche) {
-		const body = {
-			nombre: PAGE_SIZE,
-			page: nouvellePage,
-			type: nouveauType,
-		};
-		if (tranche.prixMin != null && tranche.prixMax != null) {
-			body.prixMin = tranche.prixMin;
-			body.prixMax = tranche.prixMax;
-		}
-
-		const response = await fetch(props.URI + "/admin/importer/saq", {
+	function annulerSynchronisation() {
+		// Signal PHP to stop between chunks, then abort the stream reader.
+		fetch(props.URI + "/admin/importer/saq", {
 			method: "POST",
-			body: JSON.stringify(body),
-		});
-		if (!response.ok) {
-			throw response;
-		}
-		return response.json();
-	}
-
-	async function importerType(type) {
-		const plan = await fetchPlanSaq(type);
-		const label = type === "rose" ? "rosé" : type;
-		setPrevGo(label);
-		setNbBouteillesSaq(plan.total);
-
-		let importees = 0;
-		for (const tranche of plan.tranches) {
-			const nbPages = Math.ceil(tranche.total / PAGE_SIZE);
-			for (let page = 0; page < nbPages; page++) {
-				await fetchSaq(page, type, tranche);
-				importees += Math.min(PAGE_SIZE, tranche.total - page * PAGE_SIZE);
-				const progression =
-					plan.total > 0 ? Math.min(100, Math.floor((importees * 100) / plan.total)) : 100;
-				setCycleImportation(progression);
-			}
-		}
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ mode: "cancel" }),
+		}).catch(() => {});
+		abortRef.current?.abort();
+		setOpenAlertLoading(false);
+		setSyncActif(false);
+		setSyncAnnulee(true);
+		setOpenAlert(true);
+		setCycleImportation(0);
+		setNbBouteillesSaq(0);
+		setPrevGo(false);
+		setSyncMessage("");
+		syncEnCours.current = false;
 	}
 
 	useEffect(() => {
@@ -111,39 +69,116 @@ export default function Admin(props) {
 		}
 
 		syncEnCours.current = true;
-		let annule = false;
+		const controller = new AbortController();
+		abortRef.current = controller;
 
 		(async () => {
 			try {
+				setSyncAnnulee(false);
 				setCycleImportation(0);
 				setNbBouteillesSaq(0);
+				setSyncDoneCount(0);
+				setPrevGo(false);
+				setSyncMessage("Préparation du plan SAQ…");
 
-				for (const type of TYPES_VIN) {
-					if (annule) {
-						return;
-					}
-					await importerType(type);
+				const response = await fetch(props.URI + "/admin/importer/saq", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ mode: "full" }),
+					signal: controller.signal,
+				});
+				if (!response.ok || !response.body) {
+					throw new Error(`Sync HTTP ${response.status}`);
 				}
 
-				if (!annule) {
-					setCycleImportation(100);
-					setOpenAlertLoading(false);
-					setOpenAlert(true);
-					setNbBouteillesSaq(0);
-					setPrevGo(false);
+				const reader = response.body.getReader();
+				const decoder = new TextDecoder();
+				let buffer = "";
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					buffer += decoder.decode(value, { stream: true });
+					const lines = buffer.split("\n");
+					buffer = lines.pop() || "";
+
+					for (const line of lines) {
+						const trimmed = line.trim();
+						if (!trimmed) continue;
+						let event;
+						try {
+							event = JSON.parse(trimmed);
+						} catch {
+							continue;
+						}
+
+						if (event.vinType) {
+							setPrevGo(event.vinType);
+						}
+						if (typeof event.total === "number") {
+							setNbBouteillesSaq(event.total);
+						}
+						if (typeof event.done === "number") {
+							setSyncDoneCount(event.done);
+						}
+						if (typeof event.percent === "number") {
+							setCycleImportation(event.percent);
+						}
+						if (event.phase === "plan") {
+							setSyncMessage(
+								event.vinType
+									? `Plan catalogue — ${event.typeTotal ?? 0} ${event.vinType} (total ${event.total ?? 0})`
+									: "Préparation du plan SAQ…"
+							);
+						} else if (event.phase === "import") {
+							const done = typeof event.done === "number" ? event.done : 0;
+							const total = typeof event.total === "number" ? event.total : 0;
+							const pct = typeof event.percent === "number" ? event.percent : 0;
+							const label = event.vinType || "catalogue";
+							setSyncMessage(
+								`Synchronisation SAQ — ${done}/${total} (${label}, ${pct}%)`
+							);
+						} else if (typeof event.message === "string" && event.message) {
+							setSyncMessage(event.message);
+						}
+
+						if (event.type === "done") {
+							setCycleImportation(100);
+							setSyncMessage("Synchronisation terminée");
+							setOpenAlertLoading(false);
+							setOpenAlert(true);
+							setNbBouteillesSaq(0);
+							setPrevGo(false);
+						} else if (event.type === "cancelled") {
+							setSyncAnnulee(true);
+							setOpenAlertLoading(false);
+							setOpenAlert(true);
+						} else if (event.type === "error") {
+							throw new Error(event.erreur || "Erreur de synchronisation");
+						}
+					}
 				}
 			} catch (error) {
+				if (error?.name === "AbortError") {
+					setSyncAnnulee(true);
+					setOpenAlertLoading(false);
+					setOpenAlert(true);
+					return;
+				}
 				console.error("Error fetching data: ", error);
-				props.setError(error);
+				props.setError?.(error);
 				setOpenAlertLoading(false);
 			} finally {
 				syncEnCours.current = false;
 				setSyncActif(false);
+				if (abortRef.current === controller) {
+					abortRef.current = null;
+				}
 			}
 		})();
 
 		return () => {
-			annule = true;
+			controller.abort();
 		};
 	}, [syncActif]);
 
@@ -169,7 +204,11 @@ export default function Admin(props) {
 					<div className="content-admin">
 						<h1>Bienvenue sur l'interface d'admin!</h1>
 						<div>
-							<button className="importer-admin" onClick={gererSaq}>
+							<button
+								className="importer-admin"
+								onClick={gererSaq}
+								disabled={openAlertLoading}
+							>
 								Synchroniser avec la base de données de la Saq
 							</button>
 						</div>
@@ -186,7 +225,7 @@ export default function Admin(props) {
 					>
 						<Alert
 							onClose={handleCloseAlert}
-							severity="success"
+							severity={syncAnnulee ? "warning" : "success"}
 							sx={[
 								{
 									width: "100%",
@@ -195,46 +234,43 @@ export default function Admin(props) {
 								},
 							]}
 						>
-							La synchronisation avec la base de données de la SAQ a été faite
-							avec succès!
+							{syncAnnulee
+								? "Synchronisation SAQ annulée."
+								: "La synchronisation avec la base de données de la SAQ a été faite avec succès!"}
 						</Alert>
 					</Snackbar>
-					<Snackbar
-						sx={{ height: "100%" }}
-						anchorOrigin={{
-							vertical: "top",
-							horizontal: "center",
-						}}
+					<Dialog
+						className="Admin__sync-dialog"
 						open={openAlertLoading}
-						onClose={handleCloseAlertLoading}
+						disableEscapeKeyDown
+						onClose={() => {}}
+						slotProps={{
+							paper: {
+								className: "Admin__sync-paper",
+							},
+						}}
 					>
-						<Alert
-							onClose={handleCloseAlertLoading}
-							severity="success"
-							sx={[
-								{
-									width: "100%",
-									backgroundColor: "#152440",
-									border: "1px solid #f1ab50",
-								},
-							]}
-						>
-							<p>Synchronisation en cours, veuillez patienter.</p>
-							{nbBouteillesSaq < 1 ? (
-								<p className="contenu--alert">Initialisation...</p>
-							) : (
-								<div>
-									<p className="contenu--alert">
-										Chargement de {nbBouteillesSaq} bouteilles de vin {prevGo}
-										...
-									</p>
-									<p className="contenu--alert">
-										Progression vin {prevGo}: {cycleImportation}%
-									</p>
-								</div>
-							)}
-						</Alert>
-					</Snackbar>
+						<DialogContent>
+							<Chargement
+								className="chargement--compact"
+								message={
+									syncMessage ||
+									(nbBouteillesSaq < 1
+										? "Synchronisation SAQ — initialisation…"
+										: `Synchronisation SAQ — ${syncDoneCount}/${nbBouteillesSaq} (${prevGo || "catalogue"}, ${cycleImportation}%)`)
+								}
+							/>
+						</DialogContent>
+						<DialogActions className="Admin__sync-actions">
+							<button
+								type="button"
+								className="Admin__cancel-sync"
+								onClick={annulerSynchronisation}
+							>
+								Annuler
+							</button>
+						</DialogActions>
+					</Dialog>
 					<FrmSaq
 						frmOuvert={frmOuvert}
 						setFrmOuvert={setFrmOuvert}

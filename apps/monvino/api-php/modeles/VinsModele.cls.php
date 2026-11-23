@@ -14,13 +14,33 @@ class VinsModele extends AccesBd
 
     /**
      * Recherche dans le catalogue SAQ (cellier admin #1) pour l'autocomplete.
+     * Without a vintage year: one row per nom+format (newest).
+     * With a year (e.g. "Tignanello 2018"): keep matching millésime rows.
      */
     public function rechercherCatalogueSaq($terme, $limite = 50)
     {
         $limite = max(1, min((int) $limite, 100));
-        $like = '%' . $terme . '%';
+        $terme = trim((string) $terme);
+        $millesime = null;
+        $termeNom = $terme;
+        if (preg_match('/\b((?:19|20)\d{2})\b/', $terme, $m)) {
+            $millesime = (int) $m[1];
+            $termeNom = trim(preg_replace('/\b(?:19|20)\d{2}\b/', '', $terme));
+        }
+        if ($termeNom === '') {
+            $termeNom = $terme;
+        }
 
-        return $this->lire(
+        $like = '%' . $termeNom . '%';
+        $fetchLimit = min(400, max(80, $limite * 8));
+        $params = ['q' => $like];
+        $millSql = '';
+        if ($millesime !== null) {
+            $millSql = ' AND vino__bouteille.millesime = :millesime ';
+            $params['millesime'] = $millesime;
+        }
+
+        $rows = $this->lire(
             "SELECT vino__bouteille.id, vino__bouteille.nom, `image`, code_saq, pays, `description`, prix_saq, url_saq, url_img, `format`, vino__type_id, vino__type.type, millesime, personnalise
             FROM vino__bouteille
             JOIN vino__bouteille_has_vino__cellier ON vino__bouteille.id = vino__bouteille_has_vino__cellier.vino__bouteille_id
@@ -28,10 +48,58 @@ class VinsModele extends AccesBd
             WHERE vino__bouteille_has_vino__cellier.vino__cellier_id = 1
               AND vino__bouteille.personnalise = 0
               AND (vino__bouteille.nom LIKE :q OR vino__bouteille.code_saq LIKE :q)
-            ORDER BY vino__bouteille.nom ASC
-            LIMIT $limite",
-            ['q' => $like]
+              $millSql
+            ORDER BY vino__bouteille.nom ASC, CAST(vino__bouteille.code_saq AS UNSIGNED) DESC
+            LIMIT $fetchLimit",
+            $params
         );
+
+        if (!is_array($rows) || $rows === []) {
+            return [];
+        }
+
+        // Specific vintage requested: return all matching formats/SKUs.
+        if ($millesime !== null) {
+            return array_slice($rows, 0, $limite);
+        }
+
+        $bestByKey = [];
+        foreach ($rows as $row) {
+            $key = mb_strtolower(trim((string) ($row->nom ?? '')))
+                . '|'
+                . mb_strtolower(trim((string) ($row->format ?? '')));
+            if ($key === '|') {
+                continue;
+            }
+            if (!isset($bestByKey[$key]) || $this->catalogueSaqPlusRecent($row, $bestByKey[$key])) {
+                $bestByKey[$key] = $row;
+            }
+        }
+
+        $out = array_values($bestByKey);
+        usort($out, function ($a, $b) {
+            $byName = strcasecmp((string) ($a->nom ?? ''), (string) ($b->nom ?? ''));
+            if ($byName !== 0) {
+                return $byName;
+            }
+            return strcasecmp((string) ($a->format ?? ''), (string) ($b->format ?? ''));
+        });
+
+        return array_slice($out, 0, $limite);
+    }
+
+    private function catalogueSaqPlusRecent($candidat, $actuel)
+    {
+        $score = function ($row) {
+            $mill = (int) ($row->millesime ?? 0);
+            if ($mill === 2000) {
+                $mill = 0;
+            }
+            $code = (int) preg_replace('/\D+/', '', (string) ($row->code_saq ?? '0'));
+            return [$mill, $code, (int) ($row->id ?? 0)];
+        };
+
+        return $score($candidat) > $score($actuel);
     }
 
     /**

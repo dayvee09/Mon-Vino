@@ -12,9 +12,10 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogTitle from "@mui/material/DialogTitle";
 import MuiButton from "@mui/material/Button";
 import { styled } from "@mui/material/styles";
-import placeholderSaq from "./img/png/placeholder-saq.png";
 import favoriteIconeLine from "./img/svg/icone_favorite_blue_line.svg";
 import favoriteIconeFilled from "./img/svg/icone_favorite_blue_filled.svg";
+import { decodeHtmlEntities } from "./htmlEntities";
+import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
 
 const Button = styled(MuiButton)(() => ({
   color: "#152440",
@@ -92,22 +93,19 @@ function Bouteille(props) {
   const [favorisIcone, setFavorisIcone] = useState([]);
 
   useEffect(() => {
-    let iconeFavoris = filtreBouteilles(props.favorisId, props.id);
-    if (iconeFavoris) {
-      setFavorisIcone(favoriteIconeFilled);
-    } else setFavorisIcone(favoriteIconeLine);
-  }, [props.id]);
+    setFavorisIcone(
+      estEnFavoris(props.favorisId, props.id)
+        ? favoriteIconeFilled
+        : favoriteIconeLine
+    );
+  }, [props.id, props.favorisId]);
 
-  function filtreBouteilles(array, string) {
-    if (array) {
-      if (array.length > 0 && string) {
-        return array.find((bouteille) => {
-          if (bouteille.vino__bouteille_id === string) {
-            return true;
-          }
-        });
-      }
-    }
+  function estEnFavoris(array, bottleId) {
+    if (!Array.isArray(array) || bottleId == null) return false;
+    const target = String(bottleId);
+    return array.some(
+      (bouteille) => String(bouteille?.vino__bouteille_id) === target
+    );
   }
 
   /**
@@ -213,40 +211,27 @@ function Bouteille(props) {
   }
 
   /**
-   * Gère l'ajout d'une bouteille au favoris
+   * Gère l'ajout / retrait d'une bouteille aux favoris.
    */
   function gererFavoris(e, idBouteille) {
-    let iconeFavoris = document.querySelectorAll(".bouteille--btn-favoris");
-    let url = window.location.protocol + "//" + window.location.host;
-    let favoriteIconeLineUrl =
-      url +
-      "/static/media/icone_favorite_blue_line.1497cb6ab627fa7efc52a978b1de0507.svg";
-    let favoriteIconeFilledUrl =
-      url +
-      "/static/media/icone_favorite_blue_filled.4a820c77bc0a5c4a3f0fb93d65b4a9f6.svg";
+    e.preventDefault();
+    e.stopPropagation();
+    if (!props.fetchAjouterFavoris || !props.fetchSupprimerFavoris) {
+      return;
+    }
 
-    for (let i = 0; i < iconeFavoris.length; i++) {
-      if (idBouteille == iconeFavoris[i].id) {
-        if (iconeFavoris[i].src == favoriteIconeLineUrl) {
-          iconeFavoris[i].src = favoriteIconeFilled;
-        } else if (iconeFavoris[i].src == favoriteIconeFilledUrl) {
-          iconeFavoris[i].src = favoriteIconeLine;
-        }
-      }
-    }
-    if (
-      e.target.src ===
-      url +
-        "/static/media/icone_favorite_blue_filled.4a820c77bc0a5c4a3f0fb93d65b4a9f6.svg"
-    ) {
-      let favorisAjout = {
-        vino__utilisateur_id: props.vino__utilisateur_id,
-        vino__bouteille_id: idBouteille,
-      };
-      props.fetchAjouterFavoris(favorisAjout);
-    } else {
+    const dejaFavoris = estEnFavoris(props.favorisId, idBouteille);
+    if (dejaFavoris) {
+      setFavorisIcone(favoriteIconeLine);
       props.fetchSupprimerFavoris(idBouteille);
+      return;
     }
+
+    setFavorisIcone(favoriteIconeFilled);
+    props.fetchAjouterFavoris({
+      vino__utilisateur_id: props.vino__utilisateur_id,
+      vino__bouteille_id: idBouteille,
+    });
   }
 
   /**
@@ -388,11 +373,12 @@ function Bouteille(props) {
             loading="lazy"
             decoding="async"
             onClick={gererVoir}
-            src={
-              props.image && props.image.indexOf("pastille_gout") < 0
-                ? props.image
-                : placeholderSaq
+            className={
+              isBottlePlaceholder(props.image)
+                ? "bouteille--img-placeholder"
+                : undefined
             }
+            src={resolveBottleImage(props.image)}
             alt="bouteille"
           />
           <div data-id={props.id}>
@@ -407,10 +393,13 @@ function Bouteille(props) {
         <div className="bouteille--info-container">
           <div className="bouteille--description">
             <div className="bouteille--nom--wrapper">
-              <p className="bouteille--nom">{props.nom} </p>
+              <p className="bouteille--nom">
+                {decodeHtmlEntities(props.nom)}{" "}
+              </p>
             </div>
             <p className="bouteille--info">
-              {props.type} - {props.format} - {props.pays}
+              {decodeHtmlEntities(props.type)} - {props.format} -{" "}
+              {decodeHtmlEntities(props.pays)}
             </p>
             <img
               className="bouteille--btn-favoris"

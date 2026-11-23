@@ -85,15 +85,17 @@ export default function NavDesktop({
           disableScrollLock
           anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
           transformOrigin={{ vertical: "top", horizontal: "left" }}
-          PaperProps={{
-            style: {
-              color: "#152440",
-              paddingLeft: 10,
-              paddingRight: 10,
-              marginTop: -10,
-              backgroundColor: "#d3d7dd",
-              boxShadow: "none",
-              border: "0.5px solid #152440",
+          slotProps={{
+            paper: {
+              style: {
+                color: "#152440",
+                paddingLeft: 10,
+                paddingRight: 10,
+                marginTop: -10,
+                backgroundColor: "#d3d7dd",
+                boxShadow: "none",
+                border: "0.5px solid #152440",
+              },
             },
           }}
         >

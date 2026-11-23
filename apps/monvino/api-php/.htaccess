@@ -1,4 +1,9 @@
 RewriteEngine On
+
+# Pass Authorization to PHP (CGI/Apache often strip it otherwise).
+RewriteCond %{HTTP:Authorization} .
+RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
 RewriteRule ^.*php$ index.php [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule . index.php [L]

@@ -45,4 +45,36 @@
 	.css-ki1hdl-MuiAlert-action {
 		margin-left: 0;
 	}
+
+	&__sync-paper {
+		background-color: #f3f5eb !important;
+		border: 1px solid #f1ab50;
+		color: #152440;
+		max-width: 420px;
+		min-width: 320px;
+	}
+
+	&__sync-actions {
+		justify-content: center !important;
+		padding-bottom: 1rem !important;
+	}
+
+	&__cancel-sync {
+		appearance: none;
+		background: #152440;
+		border: 1px solid #152440;
+		border-radius: 4px;
+		color: #f3f5eb;
+		cursor: pointer;
+		font-family: Alata, sans-serif;
+		font-size: 12px;
+		padding: 10px 22px;
+		text-transform: uppercase;
+
+		&:hover {
+			background: #f1ab50;
+			border-color: #f1ab50;
+			color: #152440;
+		}
+	}
 }

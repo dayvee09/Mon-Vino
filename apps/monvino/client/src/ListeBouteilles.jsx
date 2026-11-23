@@ -50,7 +50,9 @@ function ListeBouteilles(props) {
   const [debut, setDebut] = useState(0);
   const [fin, setFin] = useState(200);
   const [changementBouteille, setChangementBouteille] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(
+    () => !props.hasCachedBouteilles?.(cellierId)
+  );
   /**
    *  État des bouteilles au tri
    */
@@ -107,6 +109,16 @@ function ListeBouteilles(props) {
       return;
     }
 
+    // After identity resolve, leave cellars that don't belong to this account.
+    if (
+      Array.isArray(props.celliers) &&
+      props.celliers.length > 0 &&
+      !props.celliers.some((c) => String(c.id) === String(cellierId))
+    ) {
+      navigate("/", { replace: true });
+      return;
+    }
+
     let cancelled = false;
 
     async function loadCellier() {
@@ -138,7 +150,7 @@ function ListeBouteilles(props) {
     return () => {
       cancelled = true;
     };
-  }, [cellierId]);
+  }, [cellierId, props.celliers]);
 
   useEffect(() => {
     if (changementBouteille !== false && cellierId) {

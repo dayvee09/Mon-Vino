@@ -1,0 +1,138 @@
+.LocalAdminLogin {
+  background-color: #f3f5eb;
+  border-top: 1px solid #e2e2e273;
+  margin: 0 auto;
+  max-width: 600px;
+  padding: 1.25rem 1.5rem 1.5rem;
+  text-align: left;
+  width: 100%;
+
+  &--collapsed {
+    text-align: center;
+  }
+
+  &__title {
+    color: #152440;
+    font-family: Alata, sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    margin: 0 0 0.35rem;
+  }
+
+  &__hint {
+    color: #152440;
+    font-family: Raleway, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    margin: 0 0 0.75rem;
+    opacity: 0.85;
+  }
+
+  &__toggle {
+    appearance: none;
+    background: transparent;
+    border: none;
+    color: #152440;
+    cursor: pointer;
+    font-family: Alata, sans-serif;
+    font-size: 0.85rem;
+    padding: 0.35rem;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+
+    &:hover {
+      color: #cc4240;
+    }
+  }
+
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  &__label {
+    color: #152440;
+    font-family: Raleway, sans-serif;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-top: 0.35rem;
+  }
+
+  &__input {
+    background: #fff;
+    border: 1px solid #c5c5c5;
+    border-radius: 4px;
+    color: #152440;
+    font-family: Raleway, sans-serif;
+    font-size: 0.95rem;
+    padding: 0.65rem 0.75rem;
+
+    &:focus {
+      border-color: #f1ab50;
+      box-shadow: none;
+      outline: none;
+    }
+  }
+
+  &__error {
+    background: #f3f5eb;
+    border: 1px solid #cc4240;
+    border-radius: 4px;
+    color: #cc4240;
+    font-family: Raleway, sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin: 0.5rem 0 0;
+    padding: 0.65rem 0.75rem;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    margin-top: 0.85rem;
+  }
+
+  &__cancel {
+    appearance: none;
+    background: transparent;
+    border: 1px solid #152440;
+    border-radius: 4px;
+    color: #152440;
+    cursor: pointer;
+    font-family: Alata, sans-serif;
+    font-size: 0.75rem;
+    padding: 0.65rem 1rem;
+    text-transform: uppercase;
+
+    &:hover {
+      border-color: #cc4240;
+      color: #cc4240;
+    }
+  }
+
+  &__submit {
+    appearance: none;
+    background: #152440;
+    border: 1px solid #152440;
+    border-radius: 4px;
+    color: #f3f5eb;
+    cursor: pointer;
+    font-family: Alata, sans-serif;
+    font-size: 0.75rem;
+    padding: 0.65rem 1rem;
+    text-transform: uppercase;
+
+    &:hover:not(:disabled) {
+      background: #f1ab50;
+      border-color: #f1ab50;
+      color: #152440;
+    }
+
+    &:disabled {
+      cursor: wait;
+      opacity: 0.7;
+    }
+  }
+}

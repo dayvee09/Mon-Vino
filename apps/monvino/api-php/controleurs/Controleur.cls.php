@@ -6,6 +6,8 @@ abstract class Controleur
                        // (BODY) du message HTTP de réponse. Ce tableau aura la forme suivante : 
                        // ['entete_statut'=> 'Valeur...', 'corps'=>'Valeur du corps du message']
     protected $reponse;
+    /** When true, __destruct skips JSON output (streaming / NDJSON responses). */
+    protected $skipReponse = false;
     
     /**
      * Construire le modèle correspondant au 'controleur'
@@ -51,6 +53,8 @@ abstract class Controleur
      */
     function __destruct()
     {
-        $this->produireReponse();
+        if (!$this->skipReponse) {
+            $this->produireReponse();
+        }
     }
 }

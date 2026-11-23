@@ -8,8 +8,17 @@ import {
   updateUserAttribute,
 } from "aws-amplify/auth";
 
-function looksLikeFederatedUsername(value) {
-  return /^(google|facebook|amazon|signinwithapple)_/i.test(value);
+export function looksLikeFederatedUsername(value) {
+  return /^(google|facebook|amazon|signinwithapple)_/i.test(String(value || ""));
+}
+
+/** True when the value is usable as a Mon Vino account email (not a Cognito subject). */
+export function isUsableAccountEmail(value) {
+  return (
+    typeof value === "string" &&
+    value.includes("@") &&
+    !looksLikeFederatedUsername(value)
+  );
 }
 
 function pickEmail(...candidates) {
@@ -94,7 +103,13 @@ export async function getUserEmail(cognitoUser) {
     console.warn("fetchUserAttributes:", err);
   }
 
-  return federatedFallback || fallbackIdentityFromCognitoUser(currentUser);
+  const fallback =
+    federatedFallback || fallbackIdentityFromCognitoUser(currentUser);
+  // Never return google_/facebook_/… subjects — those create empty shadow accounts.
+  if (isUsableAccountEmail(fallback)) {
+    return fallback;
+  }
+  return null;
 }
 
 /** @deprecated Prefer getUserEmail(cognitoUser) — kept for call sites. */

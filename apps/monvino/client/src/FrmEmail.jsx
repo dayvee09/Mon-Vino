@@ -6,6 +6,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import { createTheme, ThemeProvider, styled } from "@mui/material/styles";
 import TextField from "@mui/material/TextField";
 import { updateUserAttribute } from "./auth";
+import { writeLocalSession } from "./localAuth";
 import { useState, useEffect } from "react";
 import "./FrmEmail.scss";
 import MuiButton from "@mui/material/Button";
@@ -28,6 +29,9 @@ export default function FrmEmail({
 	frmEmailOuvert,
 	setFrmEmailOuvert,
 	URI,
+	isLocalAuth = false,
+	localSession = null,
+	onLocalSessionUpdate = null,
 }) {
 	/**
 	 *  État des styles des composants MUI
@@ -119,46 +123,86 @@ export default function FrmEmail({
 	 * requête de modification de l'email utilisateur
 	 */
 	async function fetchPatchUtilisateurEmail(NouvelEmailUtilisateur) {
-		await updateUserAttribute({
-			userAttribute: {
-				attributeKey: "email",
-				value: NouvelEmailUtilisateur,
-			},
-		});
-		{
-			let reponse = await fetch(
+		// Cognito only — local admin has no Cognito session.
+		if (!isLocalAuth) {
+			await updateUserAttribute({
+				userAttribute: {
+					attributeKey: "email",
+					value: NouvelEmailUtilisateur,
+				},
+			});
+		}
+
+		const reponse = await fetch(
 			URI + "/" + "email" + "/" + emailUtilisateur + "/" + "utilisateurs",
 			{
 				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ email: NouvelEmailUtilisateur }),
 			}
-			);
-			let reponseJson = await reponse.json();
-			setEmailUtilisateur(NouvelEmailUtilisateur);
-			navigate(`/profil/${encodeURIComponent(NouvelEmailUtilisateur)}`, {
-				replace: true,
-			});
+		);
+		if (!reponse.ok) {
+			let detail = "";
+			try {
+				const errBody = await reponse.json();
+				detail = errBody?.erreur ? `: ${errBody.erreur}` : "";
+			} catch {
+				/* ignore */
+			}
+			throw new Error(`Modification refusée (HTTP ${reponse.status})${detail}`);
 		}
+
+		setEmailUtilisateur(NouvelEmailUtilisateur);
+
+		if (isLocalAuth && localSession) {
+			const nextSession = {
+				...localSession,
+				utilisateur: {
+					...localSession.utilisateur,
+					email: NouvelEmailUtilisateur,
+				},
+			};
+			writeLocalSession(nextSession);
+			onLocalSessionUpdate?.(nextSession);
+			try {
+				localStorage.setItem(
+					"monvino.localAdminEmail",
+					NouvelEmailUtilisateur
+				);
+			} catch {
+				/* ignore */
+			}
+		}
+
+		navigate(`/profil/${encodeURIComponent(NouvelEmailUtilisateur)}`, {
+			replace: true,
+		});
 		return "SUCCESS";
 	}
 
 	/**
 	 * Gère l'action de soumettre
 	 */
-	function gererSoumettre() {
+	async function gererSoumettre() {
 		setSeverity("");
 		var reg = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
 		setNouvelEmailUtilisateur(NouvelEmailUtilisateur);
-		if (reg.test(NouvelEmailUtilisateur)) {
-			fetchPatchUtilisateurEmail(NouvelEmailUtilisateur);
-			setMessageRetour("Modification effectuée");
-			setSeverity("success");
-			setOpenAlert(true);
-		} else {
+		if (!reg.test(NouvelEmailUtilisateur)) {
 			setMessageRetour("Courriel invalide");
 			setSeverity("error");
 			setOpenAlert(true);
+			return;
 		}
+		try {
+			await fetchPatchUtilisateurEmail(NouvelEmailUtilisateur);
+			setMessageRetour("Modification effectuée");
+			setSeverity("success");
+		} catch (err) {
+			console.error(err);
+			setMessageRetour(err?.message || "Modification impossible");
+			setSeverity("error");
+		}
+		setOpenAlert(true);
 	}
 	return (
 	<div>

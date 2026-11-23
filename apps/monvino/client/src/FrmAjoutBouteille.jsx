@@ -12,29 +12,34 @@ import DateSelecteur from "./DateSelecteur";
 import DateSelecteurAnnee from "./DateSelecteurAnnee";
 import MuiDateProvider from "./MuiDateProvider";
 import dayjs from "dayjs";
-import placeholderBouteille from "./img/svg/placeholder-bouteille.svg";
 import BouteilleImageZoom from "./BouteilleImageZoom";
+import Chargement from "./Chargement";
 import { useNavigate } from "react-router-dom";
 import Dialog from "@mui/material/Dialog";
 import Alert from "@mui/material/Alert";
 import { NavLink } from "react-router-dom";
 import rowIcone from "./img/svg/icone_row_left_white_filled.svg";
-
-function resolveCellierId(cellier, celliers) {
-  if (cellier) {
-    const parsed = parseInt(cellier, 10);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  if (celliers?.[0]?.id != null) {
-    const parsed = parseInt(celliers[0].id, 10);
-    if (Number.isFinite(parsed)) return parsed;
-  }
-  return "";
-}
+import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
 
 function parseCellierId(value) {
   const parsed = parseInt(value, 10);
   return Number.isFinite(parsed) ? parsed : "";
+}
+
+function cellierIds(celliers) {
+  return (celliers || [])
+    .map((cellier) => parseCellierId(cellier.id))
+    .filter((id) => id !== "");
+}
+
+function resolveCellierId(cellier, celliers) {
+  const ids = cellierIds(celliers);
+  if (ids.length === 0) return "";
+  const preferred = parseCellierId(cellier);
+  if (preferred !== "" && ids.includes(preferred)) {
+    return preferred;
+  }
+  return ids[0];
 }
 
 /**
@@ -204,9 +209,14 @@ export default function FrmAjoutBouteille(props) {
   }, [vinCellier, props.URI]);
 
   useEffect(() => {
-    if (parseCellierId(vinCellier) !== "") return;
     const resolved = resolveCellierId(props.cellier, props.celliers);
-    if (resolved !== "") {
+    const current = parseCellierId(vinCellier);
+    const ids = cellierIds(props.celliers);
+    if (resolved === "") {
+      if (current !== "") setVinCellier("");
+      return;
+    }
+    if (current === "" || !ids.includes(current)) {
       setVinCellier(resolved);
     }
   }, [props.celliers, props.cellier, vinCellier]);
@@ -349,15 +359,8 @@ export default function FrmAjoutBouteille(props) {
    * gérer l'affichage de l'image de bouteille, l'image par défaut va être à la place de l'image associé si elle n'existe pas
    * @returns URL de l'image
    */
-  const imgUrl = () => {
-    if (value?.image && value.image.indexOf("pastille_gout") < 0) {
-      return value.image;
-    }
-    return placeholderBouteille;
-  };
-
-  const imageSrc = imgUrl();
-  const isPlaceholderImage = imageSrc === placeholderBouteille;
+  const imageSrc = resolveBottleImage(value?.image || vinImage);
+  const isPlaceholderImage = isBottlePlaceholder(value?.image || vinImage);
   const imageTitre = btnState
     ? (vinNom?.trim() ? vinNom.trim() : "Bouteille personnalisée")
     : value?.nom || "Bouteille";
@@ -409,11 +412,16 @@ export default function FrmAjoutBouteille(props) {
               </p>
               <Autocomplete
                 options={vinsListe}
-                getOptionLabel={(option) => option.nom}
                 disablePortal
                 id="nom-bouteille-saq"
                 size="small"
                 loading={chargementSaq}
+                loadingText={
+                  <Chargement
+                    className="chargement--compact"
+                    message="Recherche SAQ…"
+                  />
+                }
                 filterOptions={(options) => options}
                 noOptionsText={
                   rechercheSaq.trim().length < 2
@@ -434,10 +442,40 @@ export default function FrmAjoutBouteille(props) {
                   setValue(newValue);
                   // gereAjoutRedondance();
                 }}
+                getOptionLabel={(option) => {
+                  if (!option?.nom) return "";
+                  const mill =
+                    option.millesime &&
+                    Number(option.millesime) !== 2000
+                      ? ` ${option.millesime}`
+                      : "";
+                  const format = option.format ? ` — ${option.format}` : "";
+                  return `${option.nom}${mill}${format}`;
+                }}
                 renderOption={(props, option) => {
+                  const mill =
+                    option.millesime && Number(option.millesime) !== 2000
+                      ? `${option.millesime} · `
+                      : "";
+                  const prix =
+                    option.prix_saq != null && option.prix_saq !== ""
+                      ? ` · ${Number(option.prix_saq).toFixed(2)} $`
+                      : "";
                   return (
                     <li {...props} key={option.id}>
-                      {option.nom} - {option.format}
+                      {option.nom}
+                      {option.format ? ` — ${option.format}` : ""}
+                      {mill || prix ? (
+                        <span style={{ opacity: 0.7, marginLeft: "0.35em" }}>
+                          ({mill}
+                          {option.code_saq}
+                          {prix})
+                        </span>
+                      ) : option.code_saq ? (
+                        <span style={{ opacity: 0.7, marginLeft: "0.35em" }}>
+                          ({option.code_saq})
+                        </span>
+                      ) : null}
                     </li>
                   );
                 }}
@@ -448,7 +486,10 @@ export default function FrmAjoutBouteille(props) {
 
             <Grid container spacing={1}>
               {/* min-width -- (desktop)lg:1200px - md:992px - sm:768px, xs(mobile)-max-width:768px */}
-              <Grid size={{ xs: 12, sm: 12, md: 12, lg: 12 }}>
+              <Grid
+                size={{ xs: 12, sm: 12, md: 12, lg: 12 }}
+                className={btnState ? "" : "hidden"}
+              >
                 <label className="formInputNom creer" htmlFor="nom-bouteille-perso">
                   Nom
                 </label>
@@ -566,12 +607,12 @@ export default function FrmAjoutBouteille(props) {
                 <label htmlFor="type">Type</label>
                 <TextField
                   select
-                  value={value?.vino__type_id ?? vinType}
+                  value={String(value?.vino__type_id ?? vinType)}
                   onChange={(e) => {
                     setVinType(e.target.value);
                   }}
-                  SelectProps={{
-                    native: true,
+                  slotProps={{
+                    select: { native: true },
                   }}
                   fullWidth
                   size="small"
@@ -610,12 +651,13 @@ export default function FrmAjoutBouteille(props) {
                   size="small"
                   type="number"
                   id="quantite"
-                  inputProps={{
-                    min: 1,
-                    inputMode: "numeric",
-                    pattern: "/^+?[1-9]d*$/",
+                  slotProps={{
+                    htmlInput: {
+                      min: 1,
+                      inputMode: "numeric",
+                      pattern: "[1-9][0-9]*",
+                    },
                   }}
-                  // defaultValue={1}
                   name="quantite"
                   required
                   value={vinQuantite}
@@ -636,12 +678,18 @@ export default function FrmAjoutBouteille(props) {
                 <TextField
                   select
                   id="cellier-bouteille"
-                  value={vinCellier}
+                  value={
+                    cellierIds(props.celliers).includes(
+                      parseCellierId(vinCellier)
+                    )
+                      ? parseCellierId(vinCellier)
+                      : ""
+                  }
                   onChange={(e) => {
                     setVinCellier(parseCellierId(e.target.value));
                   }}
-                  SelectProps={{
-                    native: true,
+                  slotProps={{
+                    select: { native: true },
                   }}
                   fullWidth
                   size="small"
@@ -674,11 +722,13 @@ export default function FrmAjoutBouteille(props) {
               </Grid>
               <Grid size={{ xs: 12 }}>
                 <Box
-                  display="flex"
-                  justifyContent="flex-end"
-                  alignItems="center"
-                  mt={2}
-                  mb={2}
+                  sx={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    alignItems: "center",
+                    mt: 2,
+                    mb: 2,
+                  }}
                 >
                   <button
                     className="btn--ajouter"
@@ -725,6 +775,6 @@ const types = [
   },
   {
     value: "3",
-    label: "Vin rose",
+    label: "Vin rosé",
   },
 ];

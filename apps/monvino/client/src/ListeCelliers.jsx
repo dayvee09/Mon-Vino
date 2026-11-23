@@ -10,7 +10,7 @@ import { NavLink } from "react-router-dom";
  * @returns {*}
  */
 function ListeCelliers(props) {
-  const enChargement = !props.id;
+  const enChargement = !props.id || props.celliersReady === false;
 
   if (enChargement && props.userLoadError) {
     return (

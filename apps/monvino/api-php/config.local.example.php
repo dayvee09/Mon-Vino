@@ -8,4 +8,6 @@ return [
     'db_name' => 'pw2',
     'db_user' => 'your_db_user',
     'db_pass' => 'your_db_password',
+    // HMAC secret for local admin session tokens (change in production).
+    'session_secret' => 'change-me-to-a-long-random-string',
 ];

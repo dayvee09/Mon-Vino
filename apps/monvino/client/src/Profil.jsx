@@ -25,8 +25,9 @@ import { useAuthenticator } from "@aws-amplify/ui-react";
  */
 export default function Profil(props) {
   const { authStatus, route } = useAuthenticator();
-  const isAuthenticated =
+  const cognitoAuthenticated =
     route === "authenticated" || authStatus === "authenticated";
+  const isAuthenticated = Boolean(props.isLocalAuth) || cognitoAuthenticated;
 
   /**
    *  État des styles des composants MUI
@@ -244,6 +245,9 @@ export default function Profil(props) {
             URI={props.URI}
             setNouvelEmailUtilisateur={setNouvelEmailUtilisateur}
             NouvelEmailUtilisateur={NouvelEmailUtilisateur}
+            isLocalAuth={props.isLocalAuth}
+            localSession={props.localSession}
+            onLocalSessionUpdate={props.onLocalSessionUpdate}
           />
           <FrmPassword
             frmPasswordOuvert={frmPasswordOuvert}
@@ -253,7 +257,17 @@ export default function Profil(props) {
             setPasswordActuel={setPasswordActuel}
             passwordNouveau={passwordNouveau}
             setPasswordNouveau={setPasswordNouveau}
+            isLocalAuth={props.isLocalAuth}
+            localSession={props.localSession}
+            URI={props.URI}
+            onLocalSessionUpdate={props.onLocalSessionUpdate}
           />
+          {props.passwordIsDefault && (
+            <p className="Profil--default-password-hint">
+              Vous utilisez encore le mot de passe par défaut (
+              <code>Admin123!</code>). Modifiez-le ci-dessus.
+            </p>
+          )}
           {props.utilisateur && props.utilisateur.privilege !== "admin" && (
             <div className="boutonSupprimer" data-id="">
               <button className="boutonSupprimer" onClick={gererSupprimer}>

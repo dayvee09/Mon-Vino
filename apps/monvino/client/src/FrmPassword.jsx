@@ -4,6 +4,7 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import { updatePassword } from "./auth";
+import { localChangePassword, writeLocalSession } from "./localAuth";
 import { useState, useEffect } from "react";
 import "./FrmPassword.scss";
 import { createTheme, ThemeProvider, styled } from "@mui/material/styles";
@@ -25,6 +26,10 @@ export default function FrmPassword({
 	setPasswordActuel,
 	passwordNouveau,
 	setPasswordNouveau,
+	isLocalAuth = false,
+	localSession = null,
+	URI = "",
+	onLocalSessionUpdate = null,
 }) {
 	/**
 	 *  État des styles des composants MUI
@@ -93,8 +98,11 @@ export default function FrmPassword({
 	/**
 	 * État du message d'erreur du password
 	 */
-	const validationRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,}$/;
-	const errorMessage = `Une majuscule, une minuscule et un minimum de 8 caractères requis`;
+	// Align with Cognito policy: upper, lower, digit, symbol; special chars allowed.
+	const validationRegex =
+		/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/;
+	const errorMessage =
+		"Majuscule, minuscule, chiffre, caractère spécial et 8 caractères minimum requis";
 
 	/**
 	 *  Gère l'action d'annuler
@@ -104,23 +112,45 @@ export default function FrmPassword({
 	}
 
 	/**
-	 * requête de modification du password dans aws
+	 * Modification du mot de passe (Cognito ou session locale MySQL).
 	 */
 	async function PatchPassword(passwordActuel, nouveauPassword) {
 		setBool(false);
 		setMessageRetour("");
 		setSeverity("");
-		updatePassword({
-			oldPassword: passwordActuel,
-			newPassword: nouveauPassword,
-		})
-			.then(() => {
+		try {
+			if (isLocalAuth) {
+				if (!URI || !localSession?.token) {
+					throw new Error("Session locale invalide");
+				}
+				await localChangePassword(
+					URI,
+					localSession.token,
+					passwordActuel,
+					nouveauPassword
+				);
+				const nextSession = {
+					...localSession,
+					passwordIsDefault: false,
+				};
+				writeLocalSession(nextSession);
+				onLocalSessionUpdate?.(nextSession);
 				setMessageRetour("Modification effectuée");
-			})
-			.catch((err) => {
-				console.log(err);
-				setMessageRetour("Courriel invalide");
+				return;
+			}
+			await updatePassword({
+				oldPassword: passwordActuel,
+				newPassword: nouveauPassword,
 			});
+			setMessageRetour("Modification effectuée");
+		} catch (err) {
+			console.log(err);
+			setMessageRetour(
+				err?.message && isLocalAuth
+					? err.message
+					: "Courriel invalide"
+			);
+		}
 	}
 
 	/**
@@ -150,15 +180,19 @@ export default function FrmPassword({
 				label="Mot de passe actuel"
 				id="Mot_de_passe_actuel"
 			/>
-			<PasswordField
-				className="PasswordField"
-				onChange={(event) => setPasswordNouveau(event.target.value)}
-				autoFocus
-				hasError={!validationRegex.test(passwordNouveau)}
-				errorMessage={errorMessage}
-				label="Nouveau mot de passe"
-				id="Nouveau_mot_de_passe"
-			/>
+			<div className="frmPassword__new">
+				<PasswordField
+					className="PasswordField"
+					onChange={(event) => setPasswordNouveau(event.target.value)}
+					hasError={
+						Boolean(passwordNouveau) &&
+						!validationRegex.test(passwordNouveau)
+					}
+					errorMessage={errorMessage}
+					label="Nouveau mot de passe"
+					id="Nouveau_mot_de_passe"
+				/>
+			</div>
 			<Snackbar
 				sx={{ height: "100%" }}
 				anchorOrigin={{
