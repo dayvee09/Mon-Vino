@@ -213,14 +213,16 @@ export default function Cellier(props) {
           onClose={gererFermerMenuContextuel}
           anchorOrigin={{ vertical: "top", horizontal: "right" }}
           transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            style: {
-              color: "#152440",
-              paddingLeft: 10,
-              paddingRight: 10,
-              backgroundColor: "#d3d7dd",
-              boxShadow: "none",
-              border: "0.5px solid #152440",
+          slotProps={{
+            paper: {
+              style: {
+                color: "#152440",
+                paddingLeft: 10,
+                paddingRight: 10,
+                backgroundColor: "#d3d7dd",
+                boxShadow: "none",
+                border: "0.5px solid #152440",
+              },
             },
           }}
         >
@@ -233,7 +235,7 @@ export default function Cellier(props) {
           )}
         </Menu>
         <Dialog
-          PaperProps={{ sx: { backgroundColor: "#f3f5eb" } }}
+          slotProps={{ paper: { sx: { backgroundColor: "#f3f5eb" } } }}
           open={frmSuppressionOuvert}
           onClose={viderFermerFrm}
         >

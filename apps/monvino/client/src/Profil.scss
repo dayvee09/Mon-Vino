@@ -47,6 +47,22 @@
 	max-width: 800px;
 }
 
+.Profil--default-password-hint {
+	color: #152440;
+	font-family: Raleway, sans-serif;
+	font-size: 0.9rem;
+	margin: 0.75rem 0 1.5rem;
+	max-width: 800px;
+
+	code {
+		background: #f3f5eb;
+		border: 1px solid #d3d7dd;
+		border-radius: 3px;
+		font-size: 0.85em;
+		padding: 0.1rem 0.35rem;
+	}
+}
+
 .boutonSupprimer {
 	background-color:transparent;
 	border: none;

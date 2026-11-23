@@ -1,8 +1,8 @@
 import * as React from "react";
 import "./BouteilleInventaire.scss";
 import { styled, useTheme } from "@mui/material/styles";
-import placeholderSaq from "./img/png/placeholder-saq.png";
 import { grey } from "@mui/material/colors";
+import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
@@ -13,6 +13,7 @@ import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import { decodeHtmlEntities } from "./htmlEntities";
 const drawerBleeding = 56;
 
 const Root = styled("div")(({ theme }) => ({
@@ -129,11 +130,12 @@ export default function BouteilleInventaire(props) {
           <img
             loading="lazy"
             decoding="async"
-            src={
-              props.image && props.image.indexOf("pastille_gout") < 0
-                ? props.image
-                : placeholderSaq
+            className={
+              isBottlePlaceholder(props.image)
+                ? "bouteille--img-placeholder"
+                : undefined
             }
+            src={resolveBottleImage(props.image)}
             alt="bouteille"
           />
         </div>
@@ -142,10 +144,13 @@ export default function BouteilleInventaire(props) {
             <div className="detail--container">
               <div>
                 <div className="bouteille--nom--wrapper">
-                  <p className="bouteille--nom">{props.nom}</p>
+                  <p className="bouteille--nom">
+                    {decodeHtmlEntities(props.nom)}
+                  </p>
                 </div>
                 <p className="bouteille--info">
-                  {props.type} - {props.format} - {props.millesime}
+                  {decodeHtmlEntities(props.type)} - {props.format} -{" "}
+                  {props.millesime}
                 </p>
               </div>
             </div>

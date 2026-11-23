@@ -10,9 +10,53 @@ class FavorisModele extends AccesBd
     public function tout($params)
     {
         if (isset($params['utilisateur'])) {
-            return $this->lire("SELECT vino__favoris.vino__bouteille_id, vino__bouteille.nom, `image`, code_saq, pays, `description`, prix_saq, url_saq, url_img, `format`, vino__type_id, vino__type.type, millesime,personnalise, vino__cellier_id, quantite, date_achat, garde_jusqua, notes FROM vino__favoris JOIN vino__utilisateur ON vino__favoris.vino__utilisateur_id = vino__utilisateur.id JOIN vino__bouteille ON vino__favoris.vino__bouteille_id = vino__bouteille.id JOIN vino__type ON vino__type.id = vino__bouteille.vino__type_id JOIN vino__bouteille_has_vino__cellier ON vino__bouteille.id = vino__bouteille_has_vino__cellier.vino__bouteille_id WHERE vino__favoris.vino__utilisateur_id = :utilisateur GROUP BY vino__favoris.vino__bouteille_id", ['utilisateur' => $params['utilisateur']]);
+            // Restrict cellar join to this user's cellars so the SAQ catalogue
+            // (19k+ rows in cellier #1) does not inflate the favorites query.
+            return $this->lire(
+                "SELECT
+                    vino__favoris.vino__bouteille_id,
+                    vino__bouteille.id,
+                    vino__bouteille.nom,
+                    vino__bouteille.`image`,
+                    vino__bouteille.code_saq,
+                    vino__bouteille.pays,
+                    vino__bouteille.`description`,
+                    vino__bouteille.prix_saq,
+                    vino__bouteille.url_saq,
+                    vino__bouteille.url_img,
+                    vino__bouteille.`format`,
+                    vino__bouteille.vino__type_id,
+                    vino__type.type,
+                    vino__bouteille.millesime,
+                    vino__bouteille.personnalise,
+                    MIN(lien.vino__cellier_id) AS vino__cellier_id,
+                    MAX(lien.quantite) AS quantite,
+                    MAX(lien.date_achat) AS date_achat,
+                    MAX(lien.garde_jusqua) AS garde_jusqua,
+                    MAX(lien.notes) AS notes
+                 FROM vino__favoris
+                 JOIN vino__bouteille
+                   ON vino__favoris.vino__bouteille_id = vino__bouteille.id
+                 JOIN vino__type
+                   ON vino__bouteille.vino__type_id = vino__type.id
+                 LEFT JOIN vino__bouteille_has_vino__cellier AS lien
+                   ON lien.vino__bouteille_id = vino__bouteille.id
+                 LEFT JOIN vino__cellier
+                   ON vino__cellier.id = lien.vino__cellier_id
+                  AND vino__cellier.vino__utilisateur_id = :utilisateur
+                 WHERE vino__favoris.vino__utilisateur_id = :utilisateur
+                   AND (lien.vino__bouteille_id IS NULL OR vino__cellier.id IS NOT NULL)
+                 GROUP BY vino__favoris.vino__bouteille_id
+                 ORDER BY vino__bouteille.nom ASC",
+                ['utilisateur' => $params['utilisateur']]
+            );
         } else if (isset($params['utilisateurId'])) {
-            return $this->lire("SELECT vino__favoris.vino__bouteille_id FROM vino__favoris JOIN vino__utilisateur ON vino__favoris.vino__utilisateur_id = vino__utilisateur.id WHERE vino__favoris.vino__utilisateur_id = :utilisateurId GROUP BY vino__favoris.vino__bouteille_id", ['utilisateurId' => $params['utilisateurId']]);
+            return $this->lire(
+                "SELECT vino__favoris.vino__bouteille_id
+                 FROM vino__favoris
+                 WHERE vino__favoris.vino__utilisateur_id = :utilisateurId",
+                ['utilisateurId' => $params['utilisateurId']]
+            );
         }
     }
     

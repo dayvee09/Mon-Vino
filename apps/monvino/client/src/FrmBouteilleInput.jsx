@@ -32,8 +32,9 @@ export default function FrmBouteilleInput(props) {
 		onChange={gererInput}
 		id="quantite"
 		type={"number"}
-		min={0}
-		inputProps={{ min: 0 }}
+		slotProps={{
+			htmlInput: { min: 0 },
+		}}
 		defaultValue={props.quantite}
 		/>
 	</div>

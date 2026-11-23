@@ -32,6 +32,17 @@ In the container, Apache on port **80** mirrors a nested deploy:
 
 Database seed: `apps/monvino/database/monvino-starter.sql` (see its README).
 
+### Local admin (no Cognito)
+
+On the login screen, open **Connexion admin**:
+
+| Field | Value |
+|-------|--------|
+| Email | `admin@example.com` |
+| Password | `Admin123!` |
+
+Change the password after first login via **Profil**. Cognito (Google / email) remains available for other users. Details: [`apps/monvino/database/README.md`](./apps/monvino/database/README.md).
+
 ## Build & deploy
 
 ```bash

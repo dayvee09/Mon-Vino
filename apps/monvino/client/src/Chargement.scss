@@ -9,7 +9,8 @@
   text-align: center;
 }
 
-.chargement--tiroir {
+.chargement--tiroir,
+.chargement--compact {
   gap: 0.75rem;
   margin: 1.5rem auto;
   padding: 0.75rem 1rem;
@@ -20,7 +21,20 @@
   }
 
   .chargement__message {
+    color: #152440;
     font-size: 13px;
+    font-weight: 600;
+    opacity: 1;
+  }
+}
+
+.chargement--compact {
+  margin: 0.75rem auto;
+}
+
+.chargement--sur-fonce {
+  .chargement__message {
+    color: #f3f5eb;
   }
 }
 
@@ -37,6 +51,12 @@
   width: 100%;
 }
 
+.chargement__bout-vin,
+.chargement__verre-vin {
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* Pivot milieu du corps — goulot vers le bas-droite (horaire, SVG Y↓) */
 .chargement__bouteille {
   animation: chargement-pencher 3.2s ease-in-out infinite;
@@ -49,7 +69,6 @@
 
 .chargement__jet {
   animation: chargement-jet 3.2s ease-in-out infinite;
-  /* Origine en haut du jet (sous le goulot) → s’étire vers le bas */
   transform-origin: 100px 70px;
 }
 
@@ -70,9 +89,10 @@
   color: #152440;
   font-family: Raleway, sans-serif;
   font-size: 15px;
+  font-weight: 500;
   letter-spacing: 0.02em;
   margin: 0;
-  opacity: 0.85;
+  opacity: 1;
 }
 
 @keyframes chargement-pencher {
@@ -90,22 +110,22 @@
   }
 }
 
+/* Keep heel filled at rest; shift toward neck while pouring */
 @keyframes chargement-vin-bout {
   0%,
   12% {
-    transform: translateY(-10px);
+    transform: translateY(0);
   }
   22%,
   66% {
-    transform: translateY(-48px);
+    transform: translateY(-36px);
   }
   80%,
   100% {
-    transform: translateY(-10px);
+    transform: translateY(0);
   }
 }
 
-/* Apparition du jet : s’étire du goulot vers le verre */
 @keyframes chargement-jet {
   0%,
   16% {
@@ -142,12 +162,12 @@
 
 @keyframes chargement-remplir {
   0%,
-  18% {
+  22% {
     transform: translateY(0);
   }
   66%,
   78% {
-    transform: translateY(-42px);
+    transform: translateY(-48px);
   }
   92%,
   100% {
@@ -157,23 +177,23 @@
 
 @keyframes chargement-surface {
   0%,
-  18% {
+  30% {
     opacity: 0;
-    transform: translateY(0) scaleX(0.35);
+    transform: translateY(0) scaleX(0.4);
   }
-  28% {
+  38% {
     opacity: 0.95;
-    transform: translateY(-12px) scaleX(0.6);
+    transform: translateY(-16px) scaleX(0.7);
   }
   66%,
   78% {
     opacity: 1;
-    transform: translateY(-42px) scaleX(1);
+    transform: translateY(-48px) scaleX(1);
   }
   92%,
   100% {
     opacity: 0;
-    transform: translateY(0) scaleX(0.35);
+    transform: translateY(0) scaleX(0.4);
   }
 }
 
@@ -192,7 +212,7 @@
   }
 
   .chargement__vin-bouteille {
-    transform: translateY(-40px);
+    transform: translateY(-30px);
   }
 
   .chargement__jet {
@@ -201,11 +221,11 @@
   }
 
   .chargement__vin-verre {
-    transform: translateY(-34px);
+    transform: translateY(-40px);
   }
 
   .chargement__surface-verre {
     opacity: 1;
-    transform: translateY(-34px) scaleX(1);
+    transform: translateY(-40px) scaleX(1);
   }
 }

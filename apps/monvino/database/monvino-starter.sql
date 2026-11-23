@@ -5,8 +5,8 @@
 --   mysql -u root -p -e "CREATE DATABASE pw2 CHARACTER SET utf8mb4;"
 --   mysql -u root -p pw2 < cellier-projet/database/monvino-starter.sql
 --
--- After import, set the admin row email to match your AWS Cognito admin account:
---   UPDATE vino__utilisateur SET email = 'you@example.com' WHERE id = 1;
+-- Default local admin (not Cognito): admin@example.com / Admin123!
+-- Change the password from Profil after first login.
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -39,12 +39,13 @@ CREATE TABLE `vino__utilisateur` (
   `id` int(11) NOT NULL,
   `nom` varchar(45) DEFAULT NULL,
   `email` varchar(255) NOT NULL,
-  `mdp` varchar(45) DEFAULT NULL,
+  `mdp` varchar(255) DEFAULT NULL,
   `privilege` varchar(45) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- mdp for admin = password_hash('Admin123!', PASSWORD_DEFAULT); Cognito users keep mdp NULL
 INSERT INTO `vino__utilisateur` (`id`, `nom`, `email`, `mdp`, `privilege`) VALUES
-(1, 'Administrateur', 'admin@example.com', NULL, 'admin'),
+(1, 'Administrateur', 'admin@example.com', '$2y$10$VpMWU7bCj8sSb80u5xd9/eT.EiAvRuxkh.fwXvc6rB98rvqpZthwi', 'admin'),
 (2, 'Utilisateur démo', 'demo@example.com', NULL, 'utilisateur');
 
 -- --------------------------------------------------------

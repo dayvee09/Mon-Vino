@@ -9,11 +9,12 @@ import "./FrmBouteille.scss";
 import Alert from "@mui/material/Alert";
 import IconButton from "@mui/material/IconButton";
 import CloseIcon from "@mui/icons-material/Close";
-import placeholderSaq from "./img/png/placeholder-saq.png";
 import DateSelecteur from "./DateSelecteur";
+import { resolveBottleImage } from "./bottleImage";
 import DateSelecteurAnnee from "./DateSelecteurAnnee";
 import MuiDateProvider from "./MuiDateProvider";
 import TextField from "@mui/material/TextField";
+import { decodeHtmlEntities } from "./htmlEntities";
 
 /**
  * Gestion du formulaire d'une bouteille
@@ -59,14 +60,10 @@ export default function FrmBouteille({
     }
   }
 
-  const imageSrc =
-    bouteille?.image && bouteille.image.indexOf("pastille_gout") < 0
-      ? bouteille.image
-      : placeholderSaq;
+  const imageSrc = resolveBottleImage(bouteille?.image);
 
-  const description = bouteille?.description?.trim?.()
-    ? bouteille.description.trim()
-    : "";
+  const description = decodeHtmlEntities(bouteille?.description || "").trim();
+  const nomAffiche = decodeHtmlEntities(bouteille?.nom || "");
 
   return (
     <MuiDateProvider>
@@ -77,23 +74,26 @@ export default function FrmBouteille({
         onClose={viderFermerFrm}
         maxWidth="sm"
         fullWidth
-        PaperProps={{
-          className: "FormBouteille-dialog",
-          sx: { backgroundColor: "#f3f5eb", borderRadius: "8px" },
+        slotProps={{
+          paper: {
+            className: "FormBouteille-dialog",
+            sx: { backgroundColor: "#f3f5eb", borderRadius: "8px" },
+          },
         }}
       >
         <DialogContent className="FormBouteille-content">
           <BouteilleImageZoom
             imageSrc={imageSrc}
-            title={bouteille?.nom || "Bouteille"}
-            alt={bouteille?.nom || "bouteille"}
+            title={nomAffiche || "Bouteille"}
+            alt={nomAffiche || "bouteille"}
           />
 
           <div className="fiche-body">
             <header className="fiche-header">
-              <h2 className="fiche-nom">{bouteille?.nom}</h2>
+              <h2 className="fiche-nom">{nomAffiche}</h2>
               <p className="fiche-type">
-                {bouteille_type} - {bouteille?.format} - {bouteille?.pays}
+                {decodeHtmlEntities(bouteille_type)} - {bouteille?.format} -{" "}
+                {decodeHtmlEntities(bouteille?.pays)}
               </p>
             </header>
 
@@ -157,13 +157,6 @@ export default function FrmBouteille({
                     </a>
                   </div>
                 )}
-              </div>
-            )}
-
-            {!voirFiche && description && (
-              <div className="fiche-description-block">
-                <span className="fiche-section-label">Description</span>
-                <p className="fiche-description-text">{description}</p>
               </div>
             )}
 

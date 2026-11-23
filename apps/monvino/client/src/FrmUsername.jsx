@@ -155,7 +155,7 @@ export default function FrmEmail({
   return (
     <div>
       <Dialog
-        PaperProps={{ sx: { backgroundColor: "#f3f5eb" } }}
+        slotProps={{ paper: { sx: { backgroundColor: "#f3f5eb" } } }}
         className="dialogue"
         open={frmUsernameOuvert}
         onClose={viderFermerFrm}

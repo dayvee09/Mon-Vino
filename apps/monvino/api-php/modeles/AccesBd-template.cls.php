@@ -77,4 +77,27 @@ class AccesBd
         $this->soumettre($sql, $params);
         return $this->requetePdo->rowCount();
     }
+
+    /**
+     * Run work inside a DB transaction (faster bulk SAQ imports).
+     */
+    public function enTransaction(callable $travail)
+    {
+        $this->pdo->beginTransaction();
+        try {
+            $resultat = $travail();
+            $this->pdo->commit();
+            return $resultat;
+        } catch (Throwable $e) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $e;
+        }
+    }
+
+    protected function pdo()
+    {
+        return $this->pdo;
+    }
 }

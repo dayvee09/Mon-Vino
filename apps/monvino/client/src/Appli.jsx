@@ -1,7 +1,7 @@
 // Début des modifications
 
 import React, { Suspense, lazy } from "react";
-import { Route, Routes, Navigate, useLocation } from "react-router-dom";
+import { Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { Hub } from "aws-amplify/utils";
 import {
@@ -19,24 +19,29 @@ import {
   signOut,
   deleteUser,
   emailFromCognitoUser,
-  fallbackIdentityFromCognitoUser,
+  isUsableAccountEmail,
+  looksLikeFederatedUsername,
 } from "./auth";
+import {
+  readLocalSession,
+  clearLocalSession,
+} from "./localAuth";
+import LocalAdminLogin from "./LocalAdminLogin";
 import { email } from "./utilisateur.js";
 import Logo from "./img/png/logo-jaune.png";
 import { formFields } from "./aws-form-traduction.js";
 import Chargement from "./Chargement";
+// Eager imports for frequent routes — avoids lazy-chunk delay on click.
+import Profil from "./Profil.jsx";
+import Aide from "./Aide";
+import ListeBouteilles from "./ListeBouteilles";
+import FrmAjoutBouteille from "./FrmAjoutBouteille";
+import ListeBouteillesInventaire from "./ListeBouteillesInventaire";
+import Favoris from "./Favoris";
+import FrmAjoutCellier from "./FrmAjoutCellier";
+import FrmModifierCellier from "./FrmModifierCellier";
 
 const Admin = lazy(() => import("./Admin"));
-const Profil = lazy(() => import("./Profil.jsx"));
-const Aide = lazy(() => import("./Aide"));
-const ListeBouteilles = lazy(() => import("./ListeBouteilles"));
-const FrmAjoutBouteille = lazy(() => import("./FrmAjoutBouteille"));
-const ListeBouteillesInventaire = lazy(() =>
-  import("./ListeBouteillesInventaire")
-);
-const Favoris = lazy(() => import("./Favoris"));
-const FrmAjoutCellier = lazy(() => import("./FrmAjoutCellier"));
-const FrmModifierCellier = lazy(() => import("./FrmModifierCellier"));
 
 const RouteFallback = () => <Chargement message="Chargement…" />;
 
@@ -76,25 +81,43 @@ function normalizeUtilisateur(data) {
   return data.id ? data : null;
 }
 
-const AppliContent = ({ cognitoUser }) => {
+const AppliContent = ({
+  cognitoUser = null,
+  localSession = null,
+  onClearLocalSession = null,
+  onLocalSessionUpdate = null,
+}) => {
   const { authStatus, route } = useAuthenticator();
-  const isAuthenticated =
+  const cognitoAuthenticated =
     route === "authenticated" ||
     route === "signOut" ||
     authStatus === "authenticated";
+  const isLocalAuth = Boolean(localSession?.token);
+  const isAuthenticated = isLocalAuth || cognitoAuthenticated;
 
   const [error, setError] = useState(null);
   const [bouteilles, setBouteilles] = useState([]);
   const [bouteillesInventaire, setBouteillesInventaire] = useState([]);
-  const [emailUtilisateur, setEmailUtilisateur] = useState("");
-  const [id, setId] = useState("");
+  const [emailUtilisateur, setEmailUtilisateur] = useState(
+    localSession?.utilisateur?.email || ""
+  );
+  const [id, setId] = useState(
+    localSession?.utilisateur?.id != null
+      ? String(localSession.utilisateur.id)
+      : ""
+  );
   const [cellier, setCellier] = useState("");
   const [cible, setCible] = useState("");
   const [nomCellier, setNomCellier] = useState(null);
-  const [username, setUsername] = useState("");
-  const [utilisateur, setUtilisateur] = useState(null);
+  const [username, setUsername] = useState(
+    localSession?.utilisateur?.nom || ""
+  );
+  const [utilisateur, setUtilisateur] = useState(
+    localSession?.utilisateur || null
+  );
   const [utilisateurs, setUtilisateurs] = useState([]);
   const [celliers, setCelliers] = useState([]);
+  const [celliersReady, setCelliersReady] = useState(false);
   const [indexNav, setIndexNav] = useState(0);
   const [resetBottomNav, setResetBottomNav] = useState(false);
   const URI =
@@ -139,8 +162,18 @@ const AppliContent = ({ cognitoUser }) => {
       setEmailUtilisateur("");
       setUsername("");
       setCelliers([]);
+      setCelliersReady(false);
       setUserLoadError(null);
       bootstrapRunning.current = false;
+      return;
+    }
+
+    if (isLocalAuth && localSession?.utilisateur) {
+      applyUtilisateur(
+        localSession.utilisateur,
+        localSession.utilisateur.email
+      );
+      setUserLoadError(null);
       return;
     }
 
@@ -148,30 +181,28 @@ const AppliContent = ({ cognitoUser }) => {
 
     async function resolveEmail() {
       setUserLoadError(null);
-      // Prefer local Authenticator identity so Google login can bootstrap
-      // without waiting on Cognito User Attributes / Identity Pool.
-      const localEmail =
-        emailFromCognitoUser(cognitoUser) ||
-        fallbackIdentityFromCognitoUser(cognitoUser);
-
-      if (localEmail) {
-        setEmailUtilisateur((prev) => prev || localEmail);
+      // Prefer a real email from Authenticator — never a google_/facebook_ subject.
+      const localEmail = emailFromCognitoUser(cognitoUser);
+      if (isUsableAccountEmail(localEmail)) {
+        setEmailUtilisateur((prev) =>
+          isUsableAccountEmail(prev) ? prev : localEmail
+        );
       }
 
-      // Optional upgrade to a real email — never block on it, never retry.
       try {
         const resolved = await email(cognitoUser);
-        if (cancelled || !resolved) return;
-        if (resolved.includes("@")) {
+        if (cancelled) return;
+        if (isUsableAccountEmail(resolved)) {
           setEmailUtilisateur((prev) =>
-            prev && prev.includes("@") ? prev : resolved
+            prev === resolved ? prev : resolved
           );
+          return;
         }
       } catch (err) {
         console.warn("Optional email upgrade skipped:", err);
       }
 
-      if (!localEmail) {
+      if (!cancelled && !isUsableAccountEmail(localEmail)) {
         setUserLoadError(
           new Error(
             "Impossible de lire l'email du compte connecté. Réessayez ou utilisez la connexion par courriel."
@@ -185,11 +216,31 @@ const AppliContent = ({ cognitoUser }) => {
     return () => {
       cancelled = true;
     };
-  }, [isAuthenticated, cognitoUser]);
+  }, [isAuthenticated, cognitoUser, isLocalAuth, localSession]);
+
+  // If Cognito later resolves a real email, drop any shadow google_* account id.
+  useEffect(() => {
+    if (!isAuthenticated || isLocalAuth) return;
+    if (!isUsableAccountEmail(emailUtilisateur)) return;
+    if (
+      utilisateur?.email &&
+      looksLikeFederatedUsername(utilisateur.email) &&
+      utilisateur.email !== emailUtilisateur
+    ) {
+      setId("");
+      setUtilisateur(null);
+      setCelliers([]);
+      setCelliersReady(false);
+      bouteillesCacheRef.current = {};
+    }
+  }, [isAuthenticated, isLocalAuth, emailUtilisateur, utilisateur?.email]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (!URI || !emailUtilisateur || id) return;
+    if (!URI || !emailUtilisateur) return;
+    // Do not bootstrap with Cognito subject IDs — that creates empty shadow accounts.
+    if (!isUsableAccountEmail(emailUtilisateur)) return;
+    if (id) return;
 
     let cancelled = false;
 
@@ -241,7 +292,11 @@ const AppliContent = ({ cognitoUser }) => {
   }, []);
 
   useEffect(() => {
-    if (!URI || !id) return;
+    if (!URI || !id) {
+      setCelliersReady(false);
+      return;
+    }
+    setCelliersReady(false);
     fetchCelliers();
   }, [URI, id]);
 
@@ -297,6 +352,7 @@ const AppliContent = ({ cognitoUser }) => {
 
   async function ensureUser(userEmail) {
     if (!URI || !userEmail) return false;
+    if (!isUsableAccountEmail(userEmail)) return false;
 
     const encodedEmail = encodeURIComponent(userEmail);
     const fetchApi = (path, options = {}) =>
@@ -439,7 +495,8 @@ const AppliContent = ({ cognitoUser }) => {
         inventaireCacheRef.current = null;
         favorisLoadedRef.current = false;
         setFavorisId([]);
-        setCelliers("");
+        setCelliers([]);
+        setCelliersReady(false);
         setEmailUtilisateur("");
         setUsername("");
         bootstrapRunning.current = false;
@@ -449,24 +506,36 @@ const AppliContent = ({ cognitoUser }) => {
       );
   }
 
+  function resetClientSession() {
+    setResetBottomNav(false);
+    setId("");
+    setUtilisateur(null);
+    setBouteilles("");
+    setBouteillesInventaire([]);
+    inventaireCacheRef.current = null;
+    favorisLoadedRef.current = false;
+    setFavorisId([]);
+    setCelliers([]);
+    setCelliersReady(false);
+    setEmailUtilisateur("");
+    setUsername("");
+    setIndexNav(0);
+    bootstrapRunning.current = false;
+  }
+
   async function gererSignOut() {
-    await signOut()
-      .then(() => {
-        setResetBottomNav(false);
-        setId("");
-        setUtilisateur(null);
-        setBouteilles("");
-        setBouteillesInventaire([]);
-        inventaireCacheRef.current = null;
-        favorisLoadedRef.current = false;
-        setFavorisId([]);
-        setCelliers([]);
-        setEmailUtilisateur("");
-        setUsername("");
-        setIndexNav(0);
-        bootstrapRunning.current = false;
-      })
-      .catch((err) => console.log("Erreur lors de la déconnexion", err));
+    if (isLocalAuth) {
+      clearLocalSession();
+      resetClientSession();
+      onClearLocalSession?.();
+      return;
+    }
+    try {
+      await signOut();
+      resetClientSession();
+    } catch (err) {
+      console.log("Erreur lors de la déconnexion", err);
+    }
   }
 
   // ---------------------------------- Gestion des celliers -----------------------------
@@ -483,11 +552,17 @@ const AppliContent = ({ cognitoUser }) => {
         if (data?.erreur === undefined) {
           setCelliers(Array.isArray(data) ? data : []);
           fetchStatsCelliers();
+        } else {
+          setCelliers([]);
         }
       })
       .catch((error) => {
         console.error("Error fetching data: ", error);
         setError(error);
+        setCelliers([]);
+      })
+      .finally(() => {
+        setCelliersReady(true);
       });
   }
 
@@ -691,28 +766,49 @@ const AppliContent = ({ cognitoUser }) => {
   }
 
   async function fetchAjouterFavoris(vin) {
-    const vinId = vin.vino__bouteille_id;
-    setFavorisId((prev) => [
-      ...prev,
-      { vino__bouteille_id: vinId },
-    ]);
+    if (!URI || !id) return;
+    const vinId = vin?.vino__bouteille_id;
+    if (vinId == null || vinId === "") return;
+
+    const payload = {
+      vino__bouteille_id: vinId,
+      vino__utilisateur_id: vin?.vino__utilisateur_id || id,
+    };
+
+    setFavorisId((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
+      if (list.some((f) => String(f.vino__bouteille_id) === String(vinId))) {
+        return list;
+      }
+      return [...list, { vino__bouteille_id: vinId }];
+    });
+    favorisLoadedRef.current = true;
+
     try {
       const response = await fetch(URI + `/favoris/ajouter/favoris`, {
         method: "POST",
-        body: JSON.stringify(vin),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw response;
     } catch (error) {
       console.error("Error fetching data: ", error);
       setError(error);
+      favorisLoadedRef.current = false;
       fetchFavorisId(id);
     }
   }
 
   async function fetchSupprimerFavoris(vin) {
+    if (!URI || !id || vin == null || vin === "") return;
+
     setFavorisId((prev) =>
-      prev.filter((f) => f.vino__bouteille_id !== vin)
+      (Array.isArray(prev) ? prev : []).filter(
+        (f) => String(f.vino__bouteille_id) !== String(vin)
+      )
     );
+    favorisLoadedRef.current = true;
+
     try {
       const response = await fetch(
         URI + `/utilisateur/${id}/favoris/vin/${vin}`,
@@ -722,6 +818,7 @@ const AppliContent = ({ cognitoUser }) => {
     } catch (error) {
       console.error("Error fetching data: ", error);
       setError(error);
+      favorisLoadedRef.current = false;
       fetchFavorisId(id);
     }
   }
@@ -741,7 +838,7 @@ const AppliContent = ({ cognitoUser }) => {
         throw response;
       })
       .then((data) => {
-        setFavorisId(data);
+        setFavorisId(Array.isArray(data) ? data : []);
         favorisLoadedRef.current = true;
         return data;
       })
@@ -769,6 +866,15 @@ const AppliContent = ({ cognitoUser }) => {
   // ---------------------------------- Rendering -----------------------------------------
   return (
     <div className={isAuthenticated ? "Appli" : "Login"}>
+      {isAuthenticated && isLocalAuth && localSession?.passwordIsDefault && (
+        <div className="LocalAuthNotice" role="status">
+          Mot de passe par défaut détecté — changez-le dans{" "}
+          <Link to={`/profil/${encodeURIComponent(emailUtilisateur)}`}>
+            Profil
+          </Link>
+          .
+        </div>
+      )}
       {isAuthenticated && (
         <NavDesktop
           emailUtilisateur={emailUtilisateur}
@@ -826,6 +932,12 @@ const AppliContent = ({ cognitoUser }) => {
                       setUtilisateur={setUtilisateur}
                       gererSignOut={gererSignOut}
                       URI={URI}
+                      isLocalAuth={isLocalAuth}
+                      localSession={localSession}
+                      onLocalSessionUpdate={onLocalSessionUpdate}
+                      passwordIsDefault={Boolean(
+                        localSession?.passwordIsDefault
+                      )}
                     />
                   }
                 />
@@ -952,6 +1064,7 @@ const AppliContent = ({ cognitoUser }) => {
                       setBouteilles={setBouteilles}
                       celliers={celliers}
                       setCelliers={setCelliers}
+                      celliersReady={celliersReady}
                       cellier={cellier}
                       setCellier={setCellier}
                       fetchCelliers={fetchCelliers}
@@ -978,6 +1091,7 @@ const AppliContent = ({ cognitoUser }) => {
                     <ListeCelliers
                       celliers={celliers}
                       setCelliers={setCelliers}
+                      celliersReady={celliersReady}
                       cellier={cellier}
                       setCellier={setCellier}
                       fetchCelliers={fetchCelliers}
@@ -1072,21 +1186,55 @@ const AppliContent = ({ cognitoUser }) => {
   );
 };
 
+function resolveApiUri() {
+  return (
+    process.env.REACT_APP_API_URI ||
+    (process.env.NODE_ENV === "production" ? PROD_API_URI : DEV_API_URI)
+  );
+}
+
+function AppliGate() {
+  const [localSession, setLocalSession] = useState(() => readLocalSession());
+  const apiUri = resolveApiUri();
+
+  if (localSession?.token) {
+    return (
+      <AppliContent
+        localSession={localSession}
+        onClearLocalSession={() => setLocalSession(null)}
+        onLocalSessionUpdate={setLocalSession}
+      />
+    );
+  }
+
+  return (
+    <Authenticator
+      socialProviders={["amazon", "google"]}
+      className="Authenticator"
+      formFields={formFields}
+      components={{
+        Header() {
+          return <img className="logo" src={Logo} alt="logo-mon-vino" />;
+        },
+        Footer() {
+          return (
+            <LocalAdminLogin
+              uri={apiUri}
+              onSuccess={(session) => setLocalSession(session)}
+            />
+          );
+        },
+      }}
+    >
+      {({ user }) => <AppliContent cognitoUser={user} />}
+    </Authenticator>
+  );
+}
+
 const Appli = () => (
-  <Authenticator
-    socialProviders={["amazon", "google"]}
-    className="Authenticator"
-    formFields={formFields}
-    components={{
-      Header() {
-        return (
-          <img className="logo" src={Logo} alt="logo-mon-vino" />
-        );
-      },
-    }}
-  >
-    {({ user }) => <AppliContent cognitoUser={user} />}
-  </Authenticator>
+  <Authenticator.Provider>
+    <AppliGate />
+  </Authenticator.Provider>
 );
 
 export default Appli;
