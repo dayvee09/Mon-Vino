@@ -1,7 +1,6 @@
 import * as React from "react";
 import "./Bouteille.scss";
-import FrmBouteille from "./FrmBouteille";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import Snackbar from "@mui/material/Snackbar";
 import MuiAlert from "@mui/material/Alert";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -15,7 +14,13 @@ import { styled } from "@mui/material/styles";
 import favoriteIconeLine from "./img/svg/icone_favorite_blue_line.svg";
 import favoriteIconeFilled from "./img/svg/icone_favorite_blue_filled.svg";
 import { decodeHtmlEntities } from "./htmlEntities";
-import { resolveBottleImage, isBottlePlaceholder } from "./bottleImage";
+import {
+  resolveBottleImage,
+  isBottlePlaceholder,
+  PlaceholderBouteilleSvg,
+} from "./bottleImage";
+
+const FrmBouteille = lazy(() => import("./FrmBouteille"));
 
 const Button = styled(MuiButton)(() => ({
   color: "#152440",
@@ -37,8 +42,8 @@ const Alert = React.forwardRef(function Alert(props, ref) {
 });
 
 function Bouteille(props) {
+  const editable = Boolean(props.onBouteillePatched);
   const [eltAncrage, setEltAncrage] = useState(null);
-  const [contexteModif, setContexteModif] = useState(false);
   const menuContextuelOuvert = Boolean(eltAncrage);
   const [openAlert, setOpenAlert] = React.useState(false);
   const handleCloseAlert = (event, reason) => {
@@ -100,6 +105,14 @@ function Bouteille(props) {
     );
   }, [props.id, props.favorisId]);
 
+  useEffect(() => {
+    setQuantite(props.quantite);
+  }, [props.quantite]);
+
+  useEffect(() => {
+    setBouteille(props.bouteille);
+  }, [props.bouteille]);
+
   function estEnFavoris(array, bottleId) {
     if (!Array.isArray(array) || bottleId == null) return false;
     const target = String(bottleId);
@@ -114,12 +127,7 @@ function Bouteille(props) {
    */
   function gererMenuContextuel(evt) {
     setEltAncrage(evt.currentTarget);
-    if (contexteModif === true) {
-      setQuantite(quantite);
-    } else {
-      setQuantite(props.quantite);
-    }
-    fetchVinUn();
+    setQuantite(props.quantite);
   }
 
   /**
@@ -160,6 +168,7 @@ function Bouteille(props) {
     setVinNote(props.notes);
     setDateGarde(props.garde_jusqua);
     setDateAchat(props.date_achat);
+    setVoirFiche(false);
     setFrmOuvert(true);
     gererFermerMenuContextuel();
   }
@@ -171,7 +180,7 @@ function Bouteille(props) {
     setVinNote(props.notes);
     setDateGarde(props.garde_jusqua);
     setDateAchat(props.date_achat);
-    fetchVinUn();
+    setBouteille(props.bouteille);
     setVoirFiche(true);
     setFrmOuvert(true);
   }
@@ -180,9 +189,10 @@ function Bouteille(props) {
    * Gère le bouton 'ajouter'
    */
   function gererAjouter() {
-    fetchVinUn();
+    gererFermerMenuContextuel();
+    const current = parseInt(props.quantite, 10) || 0;
     fetchPutVinUn(
-      parseInt(props.quantite) + 1,
+      current + 1,
       props.date_achat,
       props.garde_jusqua,
       props.notes
@@ -193,10 +203,11 @@ function Bouteille(props) {
    * Gère le bouton 'Boire'
    */
   function gererBoire() {
-    fetchVinUn();
-    if (props.quantite > 0) {
+    gererFermerMenuContextuel();
+    const current = parseInt(props.quantite, 10) || 0;
+    if (current > 0) {
       fetchPutVinUn(
-        parseInt(props.quantite) - 1,
+        current - 1,
         props.date_achat,
         props.garde_jusqua,
         props.notes
@@ -244,14 +255,20 @@ function Bouteille(props) {
     NouveauDateGarde,
     NouveauNote
   ) {
-    var reg = /^[1-9]+[0-9]*]*$/;
-    if (reg.test(NouveauQuantite)) {
+    var reg = /^[0-9]+$/;
+    if (reg.test(String(NouveauQuantite))) {
       setQuantite(NouveauQuantite);
     }
-    fetchPutVinUn(quantite, NouveauDateAchat, NouveauDateGarde, NouveauNote);
+    fetchPutVinUn(
+      NouveauQuantite,
+      NouveauDateAchat,
+      NouveauDateGarde,
+      NouveauNote
+    );
   }
+
   /**
-   * Actualiser la quantité du DB
+   * Actualiser la quantité du DB — optimistic UI, then sync.
    * @param {*} NouveauQuantite
    */
   async function fetchPutVinUn(
@@ -260,71 +277,74 @@ function Bouteille(props) {
     NouveauDateGarde,
     NouveauNote
   ) {
-    let reponse = await fetch(
-      props.URI +
-        "/" +
-        "cellier" +
-        "/" +
-        props.vino__cellier_id +
-        "/" +
-        "vins" +
-        "/" +
-        "bouteille" +
-        "/" +
-        props.id,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          quantite: NouveauQuantite,
-          date_achat: NouveauDateAchat,
-          garde_jusqua: NouveauDateGarde,
-          note: NouveauNote,
-        }),
-      }
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
+    const previous = {
+      quantite: props.quantite,
+      date_achat: props.date_achat,
+      garde_jusqua: props.garde_jusqua,
+      notes: props.notes,
+    };
+    const patched = {
+      id: props.id,
+      vino__cellier_id: props.vino__cellier_id,
+      quantite: NouveauQuantite,
+      date_achat: NouveauDateAchat,
+      garde_jusqua: NouveauDateGarde,
+      notes: NouveauNote,
+    };
+
+    // Paint the new count immediately (badge uses props.quantite from parent).
+    setQuantite(NouveauQuantite);
+    setDateAchat(NouveauDateAchat);
+    setDateGarde(NouveauDateGarde);
+    setVinNote(NouveauNote);
+    setBouteille((prev) => ({
+      ...(prev || {}),
+      ...patched,
+    }));
+    props.onBouteillePatched?.(patched);
+
+    const patch = {
+      quantite: NouveauQuantite,
+      date_achat: NouveauDateAchat,
+      garde_jusqua: NouveauDateGarde,
+      note: NouveauNote,
+    };
+    try {
+      const response = await fetch(
+        props.URI +
+          "/" +
+          "cellier" +
+          "/" +
+          props.vino__cellier_id +
+          "/" +
+          "vins" +
+          "/" +
+          "bouteille" +
+          "/" +
+          props.id,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
         }
-        throw response;
-      })
-      .then((data) => {
-        props.setChangementBouteille(Math.random());
-        props.fetchStatsCelliers?.();
-        fetchVinUn();
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        // setError(error);
+      );
+      if (!response.ok) throw response;
+      await response.json().catch(() => null);
+      // Background stats — do not block UI.
+      props.fetchStatsCelliers?.();
+    } catch (error) {
+      console.error("Error fetching data: ", error);
+      // Roll back optimistic update on failure.
+      setQuantite(previous.quantite);
+      setDateAchat(previous.date_achat);
+      setDateGarde(previous.garde_jusqua);
+      setVinNote(previous.notes);
+      props.onBouteillePatched?.({
+        id: props.id,
+        vino__cellier_id: props.vino__cellier_id,
+        ...previous,
       });
-  }
-  async function fetchVinUn() {
-    await fetch(
-      props.URI +
-        "/" +
-        "cellier" +
-        "/" +
-        props.vino__cellier_id +
-        "/" +
-        "vins" +
-        "/" +
-        "bouteille" +
-        "/" +
-        props.id
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setContexteModif(true);
-        setBouteille(data);
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-      });
+    }
   }
 
   /**
@@ -364,25 +384,31 @@ function Bouteille(props) {
     <>
       <div className="Bouteille" data-quantite="">
         <div className="bouteille--gestion">
-          {props.setChangementBouteille && (
+          {editable && (
             <div className="quantite--container">
-              <p className="quantite">{props.quantite}</p>
+              <p className="quantite">
+                {quantite != null && quantite !== "" ? quantite : props.quantite}
+              </p>
             </div>
           )}
-          <img
-            loading="lazy"
-            decoding="async"
-            onClick={gererVoir}
-            className={
-              isBottlePlaceholder(props.image)
-                ? "bouteille--img-placeholder"
-                : undefined
-            }
-            src={resolveBottleImage(props.image)}
-            alt="bouteille"
-          />
+          {isBottlePlaceholder(props.image) ? (
+            <PlaceholderBouteilleSvg
+              className="bouteille--img-placeholder"
+              onClick={gererVoir}
+              role="img"
+              aria-label="bouteille"
+            />
+          ) : (
+            <img
+              loading="lazy"
+              decoding="async"
+              onClick={gererVoir}
+              src={resolveBottleImage(props.image, { size: "thumb" })}
+              alt="bouteille"
+            />
+          )}
           <div data-id={props.id}>
-            {props.setChangementBouteille && (
+            {editable && (
               <MoreVertIcon
                 className="bouteille--gestion-dots"
                 onClick={gererMenuContextuel}
@@ -436,68 +462,77 @@ function Bouteille(props) {
           </Alert>
         </Snackbar>
 
-        <Menu
-          open={menuContextuelOuvert}
-          anchorEl={eltAncrage}
-          onClose={gererFermerMenuContextuel}
-          anchorOrigin={{ vertical: "top", horizontal: "right" }}
-          transformOrigin={{ vertical: "top", horizontal: "right" }}
-          PaperProps={{
-            style: {
-              color: "#152440",
-              paddingLeft: 10,
-              paddingRight: 10,
-              backgroundColor: "#d3d7dd",
-              boxShadow: "none",
-              border: "0.5px solid #152440",
-            },
-          }}
-        >
-          <MenuItem onClick={gererModifier}>Modifier</MenuItem>
-          <MenuItem onClick={gererAjouter}>Ajouter</MenuItem>
-          <MenuItem onClick={gererBoire}>Boire</MenuItem>
-          <hr></hr>
-          <MenuItem onClick={gererSupprimer}>Supprimer</MenuItem>
-        </Menu>
-        <Dialog
-          PaperProps={{ sx: { backgroundColor: "#f3f5eb" } }}
-          open={frmSuppressionOuvert}
-          onClose={viderFermerFrm}
-        >
-          {severity === "error" ? (
-            <DialogTitle>{messageRetour}</DialogTitle>
-          ) : (
-            <DialogTitle>
-              Voulez-vous vraiment supprimer cette bouteille ?
-            </DialogTitle>
-          )}
-          <DialogActions>
-            <Button onClick={viderFermerFrm} className="cancel">
-              Annuler
-            </Button>
-            <button onClick={gererSoumettre} className="action">
-              Supprimer
-            </button>
-          </DialogActions>
-        </Dialog>
-        <FrmBouteille
-          bouteille={bouteille}
-          frmOuvert={frmOuvert}
-          setFrmOuvert={setFrmOuvert}
-          voirFiche={voirFiche}
-          setVoirFiche={setVoirFiche}
-          bouteille_type={props.type}
-          quantite={props.quantite}
-          setQuantite={setQuantite}
-          dateAchat={dateAchat}
-          setDateAchat={setDateAchat}
-          dateGarde={dateGarde}
-          setDateGarde={setDateGarde}
-          vinNote={vinNote}
-          setVinNote={setVinNote}
-          modifierBouteille={modifierBouteille}
-          personnalise={props.personnalise}
-        />
+        {menuContextuelOuvert && (
+          <Menu
+            open={menuContextuelOuvert}
+            anchorEl={eltAncrage}
+            onClose={gererFermerMenuContextuel}
+            anchorOrigin={{ vertical: "top", horizontal: "right" }}
+            transformOrigin={{ vertical: "top", horizontal: "right" }}
+            PaperProps={{
+              style: {
+                color: "#152440",
+                paddingLeft: 10,
+                paddingRight: 10,
+                backgroundColor: "#d3d7dd",
+                boxShadow: "none",
+                border: "0.5px solid #152440",
+              },
+            }}
+          >
+            <MenuItem onClick={gererModifier}>Modifier</MenuItem>
+            <MenuItem onClick={gererAjouter}>Ajouter</MenuItem>
+            <MenuItem onClick={gererBoire}>Boire</MenuItem>
+            <hr></hr>
+            <MenuItem onClick={gererSupprimer}>Supprimer</MenuItem>
+          </Menu>
+        )}
+        {frmSuppressionOuvert && (
+          <Dialog
+            PaperProps={{ sx: { backgroundColor: "#f3f5eb" } }}
+            open={frmSuppressionOuvert}
+            onClose={viderFermerFrm}
+          >
+            {severity === "error" ? (
+              <DialogTitle>{messageRetour}</DialogTitle>
+            ) : (
+              <DialogTitle>
+                {messageDialog ||
+                  "Voulez-vous vraiment supprimer cette bouteille ?"}
+              </DialogTitle>
+            )}
+            <DialogActions>
+              <Button onClick={viderFermerFrm} className="cancel">
+                Annuler
+              </Button>
+              <button onClick={gererSoumettre} className="action">
+                Supprimer
+              </button>
+            </DialogActions>
+          </Dialog>
+        )}
+        {frmOuvert && (
+          <Suspense fallback={null}>
+            <FrmBouteille
+              bouteille={bouteille}
+              frmOuvert={frmOuvert}
+              setFrmOuvert={setFrmOuvert}
+              voirFiche={voirFiche}
+              setVoirFiche={setVoirFiche}
+              bouteille_type={props.type}
+              quantite={quantite}
+              setQuantite={setQuantite}
+              dateAchat={dateAchat}
+              setDateAchat={setDateAchat}
+              dateGarde={dateGarde}
+              setDateGarde={setDateGarde}
+              vinNote={vinNote}
+              setVinNote={setVinNote}
+              modifierBouteille={modifierBouteille}
+              personnalise={props.personnalise}
+            />
+          </Suspense>
+        )}
       </div>
     </>
   );

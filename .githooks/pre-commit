@@ -45,9 +45,9 @@ while IFS= read -r file; do
       break
     fi
   done
-  # Block personal SQL dumps except the public starter file
+  # Block personal SQL dumps except public/versioned schema helpers
   if echo "$file" | grep -qE '^(apps/monvino|monvino|cellier-projet)/database/.*\.sql$' && \
-     ! echo "$file" | grep -qE '^(apps/monvino|monvino|cellier-projet)/database/monvino-starter\.sql$'; then
+     ! echo "$file" | grep -qE '^(apps/monvino|monvino|cellier-projet)/database/(monvino-starter|monvino-perf-indexes)\.sql$'; then
     BLOCKED+=("$file")
   fi
 done <<< "$STAGED"

@@ -4,23 +4,28 @@
   box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.08);
 
   .bouteille--gestion {
-    background-color: #d3d7dd78;
+    background-color: #eef1e8;
     height: 180px;
     position: relative;
 
-    img {
+    img,
+    svg.bouteille--img-placeholder {
       padding: 5px 0 0 0;
       object-fit: contain;
       object-position: center bottom;
       height: 100%;
       width: 100%;
       max-height: 250px;
-      mix-blend-mode: multiply;
+    }
 
-      &.bouteille--img-placeholder {
-        mix-blend-mode: normal;
-        padding: 8px 12px 0;
-      }
+    img {
+      mix-blend-mode: multiply;
+    }
+
+    svg.bouteille--img-placeholder {
+      display: block;
+      mix-blend-mode: normal;
+      padding: 8px 12px 0;
     }
   }
 

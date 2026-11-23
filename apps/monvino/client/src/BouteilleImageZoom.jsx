@@ -2,6 +2,7 @@ import * as React from "react";
 import { createPortal } from "react-dom";
 import CloseIcon from "@mui/icons-material/Close";
 import ZoomInIcon from "@mui/icons-material/ZoomIn";
+import { PlaceholderBouteilleSvg } from "./bottleImage";
 import "./FrmBouteille.scss";
 
 /** Tap zoom on the fitted image; mobile keeps max-size so scale stays ~2.5× instead of blowing up. */
@@ -25,11 +26,12 @@ export default function BouteilleImageZoom({
   alt,
   buttonClassName = "fiche-image-btn",
   enableZoom = true,
+  isPlaceholder = false,
 }) {
   const [imageZoomOuvert, setImageZoomOuvert] = React.useState(false);
   const [imageZoomLevel, setImageZoomLevel] = React.useState(1);
   const [imageZoomOrigin, setImageZoomOrigin] = React.useState("center center");
-  const zoomEnabled = Boolean(enableZoom);
+  const zoomEnabled = Boolean(enableZoom) && !isPlaceholder;
 
   function fermerImageZoom() {
     setImageZoomOuvert(false);
@@ -78,9 +80,25 @@ export default function BouteilleImageZoom({
     ? buttonClassName
     : `${buttonClassName} fiche-image-btn--static`.trim();
 
+  const previewImage = isPlaceholder ? (
+    <PlaceholderBouteilleSvg
+      className="fiche-image-placeholder"
+      role="img"
+      aria-label={imageAlt}
+    />
+  ) : (
+    <img
+      src={imageSrc}
+      alt={imageAlt}
+      loading="eager"
+      decoding="async"
+      fetchPriority="high"
+    />
+  );
+
   const preview = (
     <>
-      <img src={imageSrc} alt={imageAlt} loading="lazy" decoding="async" />
+      {previewImage}
       {zoomEnabled && (
         <span className="fiche-image-hint">
           <ZoomInIcon fontSize="small" aria-hidden />
@@ -146,19 +164,11 @@ export default function BouteilleImageZoom({
                 alt={imageAlt}
                 style={{
                   transformOrigin: imageZoomOrigin,
-                  transform:
-                    imageZoomLevel > 1
-                      ? `scale(${imageZoomLevel})`
-                      : "none",
+                  transform: `scale(${imageZoomLevel})`,
                 }}
                 onClick={gererClicImageZoom}
               />
             </div>
-            <p className="fiche-image-zoom-hint">
-              {imageZoomLevel > 1
-                ? "Cliquer sur la bouteille pour réduire, ou à l'extérieur pour fermer"
-                : "Cliquer sur la bouteille pour zoomer, ou à l'extérieur pour fermer"}
-            </p>
           </div>,
           document.body
         )}

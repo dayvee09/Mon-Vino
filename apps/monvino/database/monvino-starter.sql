@@ -128,7 +128,10 @@ CREATE TABLE `vino__favoris` (
 
 ALTER TABLE `vino__bouteille`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `fk_vino__bouteille_vino__type1_idx` (`vino__type_id`);
+  ADD KEY `fk_vino__bouteille_vino__type1_idx` (`vino__type_id`),
+  ADD KEY `idx_vino__bouteille_code_saq` (`code_saq`),
+  ADD KEY `idx_vino__bouteille_personnalise` (`personnalise`),
+  ADD FULLTEXT KEY `ft_vino__bouteille_nom` (`nom`);
 
 ALTER TABLE `vino__bouteille_has_vino__cellier`
   ADD PRIMARY KEY (`vino__bouteille_id`,`vino__cellier_id`),

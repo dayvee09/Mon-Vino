@@ -5,6 +5,8 @@ import Chargement from "./Chargement";
 import { NavLink } from "react-router-dom";
 import rowIcone from "./img/svg/icone_row_left_white_filled.svg";
 
+const PAGE_SIZE = 48;
+
 /**
  * Gestion de la bouteille à favoris
  *
@@ -17,26 +19,28 @@ function Favoris(props) {
   const [favoris, setFavoris] = useState([]);
   const [ready, setReady] = useState(false);
   const [debut, setDebut] = useState(0);
-  const [fin, setFin] = useState(200);
+  const [fin, setFin] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    if (!props.URI || !props.id) {
+    if (!props.URI || !props.id || !props.fetchFavorisList) {
       setReady(false);
       return;
     }
 
     let cancelled = false;
-    setReady(false);
+    if (!props.hasCachedFavoris?.()) {
+      setReady(false);
+    }
 
     async function loadFavoris() {
       try {
-        const response = await fetch(
-          props.URI + "/" + "utilisateur" + "/" + props.id + "/" + "favoris"
-        );
-        if (!response.ok) throw response;
-        const data = await response.json();
+        const result = await props.fetchFavorisList();
         if (cancelled) return;
-        setFavoris(Array.isArray(data) ? data : []);
+        if (result?.ok) {
+          setFavoris(Array.isArray(result.data) ? result.data : []);
+        } else {
+          setFavoris([]);
+        }
       } catch (error) {
         if (cancelled) return;
         console.error("Error fetching data: ", error);
@@ -52,11 +56,26 @@ function Favoris(props) {
     return () => {
       cancelled = true;
     };
-  }, [props.URI, props.id]);
+  }, [props.URI, props.id, props.fetchFavorisList, props.hasCachedFavoris]);
+
+  // Keep list in sync when favorisId changes (add/remove from this page or elsewhere).
+  useEffect(() => {
+    if (!ready || !Array.isArray(props.favorisId)) return;
+    const ids = new Set(
+      props.favorisId.map((f) => String(f.vino__bouteille_id))
+    );
+    setFavoris((prev) => {
+      if (!Array.isArray(prev) || prev.length === 0) return prev;
+      const filtered = prev.filter((b) =>
+        ids.has(String(b.vino__bouteille_id ?? b.id))
+      );
+      return filtered.length === prev.length ? prev : filtered;
+    });
+  }, [props.favorisId, ready]);
 
   function gererVoirPlus() {
     if (favoris.length > fin) {
-      setFin(fin + 200);
+      setFin(fin + PAGE_SIZE);
     } else if (favoris.length <= fin) {
       setFin(favoris.length);
     }

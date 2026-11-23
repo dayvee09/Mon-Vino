@@ -34,15 +34,23 @@
     outline-offset: -2px;
   }
 
-  img {
+  img,
+  svg.fiche-image-placeholder {
     display: block;
     height: auto;
     max-height: 300px;
     max-width: 100%;
-    mix-blend-mode: multiply;
     object-fit: contain;
     pointer-events: none;
     width: auto;
+  }
+
+  img {
+    mix-blend-mode: multiply;
+  }
+
+  svg.fiche-image-placeholder {
+    mix-blend-mode: normal;
   }
 
   &--static {

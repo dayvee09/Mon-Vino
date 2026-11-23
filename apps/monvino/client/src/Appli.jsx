@@ -2,7 +2,7 @@
 
 import React, { Suspense, lazy } from "react";
 import { Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Hub } from "aws-amplify/utils";
 import {
   Authenticator,
@@ -31,17 +31,32 @@ import { email } from "./utilisateur.js";
 import Logo from "./img/png/logo-jaune.png";
 import { formFields } from "./aws-form-traduction.js";
 import Chargement from "./Chargement";
-// Eager imports for frequent routes — avoids lazy-chunk delay on click.
+// Hot path + frequent nav targets stay eager (no lazy-chunk wait on click).
+import ListeBouteilles from "./ListeBouteilles";
+import ListeBouteillesInventaire from "./ListeBouteillesInventaire";
 import Profil from "./Profil.jsx";
 import Aide from "./Aide";
-import ListeBouteilles from "./ListeBouteilles";
-import FrmAjoutBouteille from "./FrmAjoutBouteille";
-import ListeBouteillesInventaire from "./ListeBouteillesInventaire";
-import Favoris from "./Favoris";
-import FrmAjoutCellier from "./FrmAjoutCellier";
-import FrmModifierCellier from "./FrmModifierCellier";
 
+const FrmAjoutBouteille = lazy(() => import("./FrmAjoutBouteille"));
+const Favoris = lazy(() => import("./Favoris"));
+const FrmAjoutCellier = lazy(() => import("./FrmAjoutCellier"));
+const FrmModifierCellier = lazy(() => import("./FrmModifierCellier"));
 const Admin = lazy(() => import("./Admin"));
+
+/** First-page size for cellar bottles (matches ListeBouteilles PAGE_SIZE). */
+const VINS_FIRST_PAGE = 48;
+
+function prefetchRouteChunk(importer) {
+  return () => {
+    importer();
+  };
+}
+
+const prefetchAjoutBouteilleChunk = prefetchRouteChunk(() =>
+  import("./FrmAjoutBouteille")
+);
+const prefetchFavorisChunk = prefetchRouteChunk(() => import("./Favoris"));
+const prefetchAdminChunk = prefetchRouteChunk(() => import("./Admin"));
 
 const RouteFallback = () => <Chargement message="Chargement…" />;
 
@@ -134,6 +149,8 @@ const AppliContent = ({
   const inventaireFetchInFlightRef = useRef(null);
   const favorisLoadedRef = useRef(false);
   const favorisFetchInFlightRef = useRef(null);
+  const favorisListCacheRef = useRef(null);
+  const favorisListFetchInFlightRef = useRef(null);
   const cellierActifRef = useRef("");
 
   const location = useLocation();
@@ -151,6 +168,30 @@ const AppliContent = ({
     setId(String(user.id));
     setUsername(user.nom || defaultUsernameFromEmail(userEmail));
     setEmailUtilisateur(userEmail);
+  }
+
+  function applyStatsRows(rows) {
+    const map = {};
+    if (Array.isArray(rows)) {
+      rows.forEach((row) => {
+        map[String(row.cellier_id)] = row;
+      });
+    }
+    setStatsCelliers(map);
+  }
+
+  function applyMePayload(payload, userEmail) {
+    const user = payload?.utilisateur;
+    if (!user?.id) return false;
+    applyUtilisateur(user, userEmail || user.email);
+    setCelliers(Array.isArray(payload.celliers) ? payload.celliers : []);
+    setCelliersReady(true);
+    applyStatsRows(payload.stats);
+    if (Array.isArray(payload.favorisId)) {
+      setFavorisId(payload.favorisId);
+      favorisLoadedRef.current = true;
+    }
+    return true;
   }
 
   // ------------------------------- fonctions de gestion des états ----------------------------
@@ -296,9 +337,43 @@ const AppliContent = ({
       setCelliersReady(false);
       return;
     }
-    setCelliersReady(false);
-    fetchCelliers();
-  }, [URI, id]);
+    // /me bootstrap (ensureUser) may already have filled celliers + stats.
+    if (celliersReady) return;
+
+    let cancelled = false;
+
+    async function loadSessionShell() {
+      if (emailUtilisateur && isUsableAccountEmail(emailUtilisateur)) {
+        try {
+          const response = await fetch(
+            URI +
+              "/email/" +
+              encodeURIComponent(emailUtilisateur) +
+              "/me",
+            { signal: AbortSignal.timeout(15000) }
+          );
+          if (response.ok) {
+            const payload = await response.json();
+            if (!cancelled && payload?.utilisateur?.id) {
+              applyMePayload(payload, emailUtilisateur);
+              return;
+            }
+          }
+        } catch (error) {
+          console.error("Bootstrap /me failed, falling back:", error);
+        }
+      }
+      if (!cancelled) {
+        fetchCelliers();
+      }
+    }
+
+    loadSessionShell();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [URI, id, emailUtilisateur, celliersReady]);
 
   useEffect(() => {
     if (!URI || !id) return;
@@ -313,29 +388,6 @@ const AppliContent = ({
       fetchVinsInventaire();
     }
   }, [URI, id, location.pathname]);
-
-  function gererBouteilles(idBouteilles) {
-    setBouteilles(idBouteilles);
-  }
-  function gererCellier(idCellier) {
-    cellierActifRef.current = String(idCellier);
-    setCellier(idCellier);
-  }
-
-  function hasCachedBouteilles(cellierId) {
-    return Boolean(bouteillesCacheRef.current[String(cellierId)]);
-  }
-
-  function invalidateBouteillesCache(cellierId) {
-    if (cellierId != null) {
-      delete bouteillesCacheRef.current[String(cellierId)];
-    } else {
-      bouteillesCacheRef.current = {};
-    }
-  }
-  function gererCible(cible) {
-    setCible(cible);
-  }
 
   // -------------------------- Requêtes Fetch ------------------------------------------------------
 
@@ -360,14 +412,11 @@ const AppliContent = ({
 
     try {
       setUserLoadError(null);
-      const existing = await fetchApi(
-        "/email/" + encodedEmail + "/utilisateurs"
-      );
-      if (existing.ok) {
-        const data = await existing.json();
-        const user = normalizeUtilisateur(data);
-        if (user) {
-          applyUtilisateur(user, userEmail);
+      const existingMe = await fetchApi("/email/" + encodedEmail + "/me");
+      if (existingMe.ok) {
+        const payload = await existingMe.json();
+        if (payload?.utilisateur?.id) {
+          applyMePayload(payload, userEmail);
           return true;
         }
       }
@@ -392,7 +441,18 @@ const AppliContent = ({
           `Création du compte refusée (HTTP ${reponse.status})${detail}`
         );
       }
-      const created = await reponse.json();
+
+      const created = await reponse.json().catch(() => null);
+
+      const meRetry = await fetchApi("/email/" + encodedEmail + "/me");
+      if (meRetry.ok) {
+        const payload = await meRetry.json();
+        if (payload?.utilisateur?.id) {
+          applyMePayload(payload, userEmail);
+          return true;
+        }
+      }
+
       if (created?.id) {
         applyUtilisateur(
           {
@@ -403,18 +463,6 @@ const AppliContent = ({
           userEmail
         );
         return true;
-      }
-
-      const retry = await fetchApi(
-        "/email/" + encodedEmail + "/utilisateurs"
-      );
-      if (retry.ok) {
-        const data = await retry.json();
-        const user = normalizeUtilisateur(data);
-        if (user) {
-          applyUtilisateur(user, userEmail);
-          return true;
-        }
       }
 
       setUserLoadError(new Error("Utilisateur introuvable"));
@@ -514,6 +562,7 @@ const AppliContent = ({
     setBouteillesInventaire([]);
     inventaireCacheRef.current = null;
     favorisLoadedRef.current = false;
+    favorisListCacheRef.current = null;
     setFavorisId([]);
     setCelliers([]);
     setCelliersReady(false);
@@ -539,7 +588,21 @@ const AppliContent = ({
   }
 
   // ---------------------------------- Gestion des celliers -----------------------------
-  async function fetchCelliers() {
+  const fetchStatsCelliers = useCallback(async () => {
+    if (!URI || !id) return;
+    try {
+      const response = await fetch(
+        URI + "/" + "user_id" + "/" + id + "/" + "stats"
+      );
+      if (!response.ok) throw response;
+      const data = await response.json();
+      applyStatsRows(data);
+    } catch (error) {
+      console.error("Error fetching cellar stats: ", error);
+    }
+  }, [URI, id]);
+
+  const fetchCelliers = useCallback(async () => {
     if (!URI || !id) return;
     await fetch(URI + "/" + "user_id" + "/" + id + "/" + "celliers")
       .then((response) => {
@@ -564,137 +627,266 @@ const AppliContent = ({
       .finally(() => {
         setCelliersReady(true);
       });
-  }
+  }, [URI, id, fetchStatsCelliers]);
 
-  async function fetchStatsCelliers() {
-    if (!URI || !id) return;
-    try {
-      const response = await fetch(
-        URI + "/" + "user_id" + "/" + id + "/" + "stats"
-      );
-      if (!response.ok) throw response;
-      const data = await response.json();
-      const map = {};
-      if (Array.isArray(data)) {
-        data.forEach((row) => {
-          map[String(row.cellier_id)] = row;
+  const fetchNomCellier = useCallback(
+    async (cellierId) => {
+      const targetCellier = cellierId ?? cellier;
+      if (!URI || !id || !targetCellier) return;
+      await fetch(
+        URI +
+          "/" +
+          "user_id" +
+          "/" +
+          id +
+          "/" +
+          "celliers" +
+          "/" +
+          "cellier" +
+          "/" +
+          targetCellier
+      )
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw response;
+        })
+        .then((data) => {
+          if (data && data.nom) {
+            setNomCellier(data);
+          }
+        })
+        .catch((error) => {
+          console.error("Error fetching data: ", error);
+          setError(error);
         });
-      }
-      setStatsCelliers(map);
-    } catch (error) {
-      console.error("Error fetching cellar stats: ", error);
-    }
-  }
-
-  async function fetchNomCellier(cellierId) {
-    const targetCellier = cellierId ?? cellier;
-    if (!URI || !id || !targetCellier) return;
-    await fetch(
-      URI +
-        "/" +
-        "user_id" +
-        "/" +
-        id +
-        "/" +
-        "celliers" +
-        "/" +
-        "cellier" +
-        "/" +
-        targetCellier
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        if (data && data.nom) {
-          setNomCellier(data);
-        }
-      })
-      .catch((error) => {
-        console.error("Error fetching data: ", error);
-        setError(error);
-      });
-  }
+    },
+    [URI, id, cellier]
+  );
 
   // --------------------------------- Gestion des bouteilles ------------------------------------
 
-  async function loadVinsFromApi(cellierId) {
-    const key = String(cellierId);
-    if (vinsFetchInFlightRef.current[key]) {
-      return vinsFetchInFlightRef.current[key];
-    }
-    const promise = (async () => {
-      try {
-        const response = await fetch(
-          URI + "/" + "cellier" + "/" + cellierId + "/" + "vins"
-        );
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        if (data?.erreur) {
-          throw new Error(data.erreur);
-        }
-        const list = Array.isArray(data) ? data : [];
-        return { ok: true, data: list };
-      } catch (error) {
-        console.error("Error fetching data: ", error);
-        setError(error);
-        return { ok: false, error };
-      } finally {
-        delete vinsFetchInFlightRef.current[key];
+  const loadVinsFromApi = useCallback(
+    async (cellierId, options = {}) => {
+      const { limit = null, offset = 0 } = options;
+      const key =
+        limit != null
+          ? `${cellierId}:p:${offset}:${limit}`
+          : String(cellierId);
+      if (vinsFetchInFlightRef.current[key]) {
+        return vinsFetchInFlightRef.current[key];
       }
-    })();
-    vinsFetchInFlightRef.current[key] = promise;
-    return promise;
-  }
+      const promise = (async () => {
+        try {
+          let url =
+            URI + "/" + "cellier" + "/" + cellierId + "/" + "vins";
+          if (limit != null) {
+            url +=
+              `?limit=${encodeURIComponent(limit)}` +
+              `&offset=${encodeURIComponent(offset)}`;
+          }
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          const data = await response.json();
+          if (data?.erreur) {
+            throw new Error(data.erreur);
+          }
+          if (data && Array.isArray(data.items)) {
+            return {
+              ok: true,
+              data: data.items,
+              total: Number(data.total) || data.items.length,
+              paginated: true,
+            };
+          }
+          const list = Array.isArray(data) ? data : [];
+          return {
+            ok: true,
+            data: list,
+            total: list.length,
+            paginated: false,
+          };
+        } catch (error) {
+          console.error("Error fetching data: ", error);
+          setError(error);
+          return { ok: false, error };
+        } finally {
+          delete vinsFetchInFlightRef.current[key];
+        }
+      })();
+      vinsFetchInFlightRef.current[key] = promise;
+      return promise;
+    },
+    [URI]
+  );
 
-  async function fetchVins(cellierId, options = {}) {
-    const { force = false } = options;
-    const key = String(cellierId);
-    if (!URI || !cellierId) return { ok: false };
+  const invalidateBouteillesCache = useCallback((cellierId) => {
+    if (cellierId != null) {
+      delete bouteillesCacheRef.current[String(cellierId)];
+    } else {
+      bouteillesCacheRef.current = {};
+    }
+  }, []);
 
-    const cached = bouteillesCacheRef.current[key];
-    if (cached && !force) {
-      setBouteilles(cached);
-      loadVinsFromApi(cellierId).then((result) => {
+  const fetchVins = useCallback(
+    async (cellierId, options = {}) => {
+      const { force = false, full = false } = options;
+      const key = String(cellierId);
+      if (!URI || !cellierId) return { ok: false };
+
+      const cached = bouteillesCacheRef.current[key];
+      if (cached && !force) {
+        setBouteilles(cached);
+        loadVinsFromApi(cellierId).then((result) => {
+          if (result.ok) {
+            bouteillesCacheRef.current[key] = result.data;
+            if (cellierActifRef.current === key) {
+              setBouteilles(result.data);
+            }
+          }
+        });
+        return { ok: true, data: cached, fromCache: true };
+      }
+
+      // Forms that need every bottle (duplicate checks) skip progressive paging.
+      if (full || force) {
+        const result = await loadVinsFromApi(cellierId);
         if (result.ok) {
           bouteillesCacheRef.current[key] = result.data;
-          if (cellierActifRef.current === key) {
-            setBouteilles(result.data);
+          setBouteilles(result.data);
+        } else {
+          invalidateBouteillesCache(cellierId);
+          setBouteilles([]);
+        }
+        return result;
+      }
+
+      // Fast first paint: first page, then fill the rest in the background.
+      const first = await loadVinsFromApi(cellierId, {
+        limit: VINS_FIRST_PAGE,
+        offset: 0,
+      });
+      if (!first.ok) {
+        invalidateBouteillesCache(cellierId);
+        setBouteilles([]);
+        return first;
+      }
+
+      bouteillesCacheRef.current[key] = first.data;
+      setBouteilles(first.data);
+
+      if (first.paginated && first.total > first.data.length) {
+        loadVinsFromApi(cellierId).then((result) => {
+          if (result.ok) {
+            bouteillesCacheRef.current[key] = result.data;
+            if (cellierActifRef.current === key) {
+              setBouteilles(result.data);
+            }
+          }
+        });
+      }
+
+      return first;
+    },
+    [URI, loadVinsFromApi, invalidateBouteillesCache]
+  );
+
+  const prefetchVins = useCallback(
+    (cellierId) => {
+      const key = String(cellierId);
+      if (!URI || !cellierId || bouteillesCacheRef.current[key]) return;
+      if (vinsFetchInFlightRef.current[key]) return;
+      if (vinsFetchInFlightRef.current[`${cellierId}:p:0:${VINS_FIRST_PAGE}`]) {
+        return;
+      }
+      loadVinsFromApi(cellierId, {
+        limit: VINS_FIRST_PAGE,
+        offset: 0,
+      }).then((result) => {
+        if (result.ok) {
+          bouteillesCacheRef.current[key] = result.data;
+          if (result.paginated && result.total > result.data.length) {
+            loadVinsFromApi(cellierId).then((full) => {
+              if (full.ok) {
+                bouteillesCacheRef.current[key] = full.data;
+              }
+            });
           }
         }
       });
-      return { ok: true, data: cached, fromCache: true };
-    }
+    },
+    [URI, loadVinsFromApi]
+  );
 
-    const result = await loadVinsFromApi(cellierId);
-    if (result.ok) {
-      bouteillesCacheRef.current[key] = result.data;
-      setBouteilles(result.data);
-    } else {
-      invalidateBouteillesCache(cellierId);
-      setBouteilles([]);
-    }
-    return result;
-  }
+  const onBouteillePatched = useCallback((updated) => {
+    if (!updated?.id) return;
+    const bottleId = String(updated.id);
+    const cellierKey =
+      updated.vino__cellier_id != null
+        ? String(updated.vino__cellier_id)
+        : null;
+    const patchFields = {
+      quantite: updated.quantite,
+      date_achat: updated.date_achat,
+      garde_jusqua: updated.garde_jusqua,
+      notes: updated.notes,
+    };
 
-  function prefetchVins(cellierId) {
-    const key = String(cellierId);
-    if (!URI || !cellierId || bouteillesCacheRef.current[key]) return;
-    if (vinsFetchInFlightRef.current[key]) return;
-    loadVinsFromApi(cellierId).then((result) => {
-      if (result.ok) {
-        bouteillesCacheRef.current[key] = result.data;
+    const patchList = (list) => {
+      if (!Array.isArray(list)) return list;
+      return list.map((b) =>
+        String(b.id) === bottleId ||
+        String(b.vino__bouteille_id) === bottleId
+          ? { ...b, ...patchFields }
+          : b
+      );
+    };
+
+    setBouteilles((prev) => patchList(prev));
+    if (cellierKey && bouteillesCacheRef.current[cellierKey]) {
+      bouteillesCacheRef.current[cellierKey] = patchList(
+        bouteillesCacheRef.current[cellierKey]
+      );
+    }
+    setBouteillesInventaire((prev) => patchList(prev));
+    if (inventaireCacheRef.current) {
+      inventaireCacheRef.current = patchList(inventaireCacheRef.current);
+    }
+    if (favorisListCacheRef.current) {
+      favorisListCacheRef.current = patchList(favorisListCacheRef.current);
+    }
+  }, []);
+
+  const onBouteilleAjoutee = useCallback((bottle) => {
+    if (!bottle?.id || bottle.vino__cellier_id == null) return;
+    const key = String(bottle.vino__cellier_id);
+    const bottleId = String(bottle.id);
+
+    const merge = (list) => {
+      const arr = Array.isArray(list) ? list : [];
+      const idx = arr.findIndex((b) => String(b.id) === bottleId);
+      if (idx >= 0) {
+        const next = arr.slice();
+        next[idx] = { ...arr[idx], ...bottle };
+        return next;
       }
-    });
-  }
+      return [...arr, bottle];
+    };
+
+    cellierActifRef.current = key;
+    setBouteilles((prev) => merge(prev));
+    bouteillesCacheRef.current[key] = merge(
+      bouteillesCacheRef.current[key] || []
+    );
+    inventaireCacheRef.current = null;
+  }, []);
+
   // --------------------------------- Gestion des différentes bouteilles comprises dans tous mes celliers ------------------------------------
 
-  async function loadInventaireFromApi() {
+  const loadInventaireFromApi = useCallback(async () => {
     if (inventaireFetchInFlightRef.current) {
       return inventaireFetchInFlightRef.current;
     }
@@ -717,40 +909,43 @@ const AppliContent = ({
     })();
     inventaireFetchInFlightRef.current = promise;
     return promise;
-  }
+  }, [URI, id]);
 
-  async function fetchVinsInventaire(options = {}) {
-    const { force = false } = options;
-    if (!URI || !id) return { ok: false };
+  const fetchVinsInventaire = useCallback(
+    async (options = {}) => {
+      const { force = false } = options;
+      if (!URI || !id) return { ok: false };
 
-    const cached = inventaireCacheRef.current;
-    if (cached && !force) {
-      setBouteillesInventaire(cached);
-      loadInventaireFromApi().then((result) => {
-        if (result.ok) {
-          inventaireCacheRef.current = result.data;
-          setBouteillesInventaire(result.data);
-        }
-      });
-      return { ok: true, data: cached, fromCache: true };
-    }
+      const cached = inventaireCacheRef.current;
+      if (cached && !force) {
+        setBouteillesInventaire(cached);
+        loadInventaireFromApi().then((result) => {
+          if (result.ok) {
+            inventaireCacheRef.current = result.data;
+            setBouteillesInventaire(result.data);
+          }
+        });
+        return { ok: true, data: cached, fromCache: true };
+      }
 
-    const result = await loadInventaireFromApi();
-    if (result.ok) {
-      inventaireCacheRef.current = result.data;
-      setBouteillesInventaire(result.data);
-    } else {
-      inventaireCacheRef.current = null;
-      setBouteillesInventaire([]);
-    }
-    return result;
-  }
+      const result = await loadInventaireFromApi();
+      if (result.ok) {
+        inventaireCacheRef.current = result.data;
+        setBouteillesInventaire(result.data);
+      } else {
+        inventaireCacheRef.current = null;
+        setBouteillesInventaire([]);
+      }
+      return result;
+    },
+    [URI, id, loadInventaireFromApi]
+  );
 
-  function hasCachedInventaire() {
+  const hasCachedInventaire = useCallback(() => {
     return inventaireCacheRef.current !== null;
-  }
+  }, []);
 
-  function prefetchVinsInventaire() {
+  const prefetchVinsInventaire = useCallback(() => {
     if (!URI || !id || inventaireCacheRef.current) return;
     if (inventaireFetchInFlightRef.current) return;
     loadInventaireFromApi().then((result) => {
@@ -759,109 +954,238 @@ const AppliContent = ({
         setBouteillesInventaire(result.data);
       }
     });
-  }
+  }, [URI, id, loadInventaireFromApi]);
 
-  function invalidateInventaireCache() {
+  const invalidateInventaireCache = useCallback(() => {
     inventaireCacheRef.current = null;
-  }
+  }, []);
 
-  async function fetchAjouterFavoris(vin) {
-    if (!URI || !id) return;
-    const vinId = vin?.vino__bouteille_id;
-    if (vinId == null || vinId === "") return;
-
-    const payload = {
-      vino__bouteille_id: vinId,
-      vino__utilisateur_id: vin?.vino__utilisateur_id || id,
-    };
-
-    setFavorisId((prev) => {
-      const list = Array.isArray(prev) ? prev : [];
-      if (list.some((f) => String(f.vino__bouteille_id) === String(vinId))) {
-        return list;
+  const fetchFavorisId = useCallback(
+    async (utilisateur) => {
+      if (!URI || !utilisateur) return;
+      if (favorisFetchInFlightRef.current) {
+        return favorisFetchInFlightRef.current;
       }
-      return [...list, { vino__bouteille_id: vinId }];
-    });
-    favorisLoadedRef.current = true;
-
-    try {
-      const response = await fetch(URI + `/favoris/ajouter/favoris`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!response.ok) throw response;
-    } catch (error) {
-      console.error("Error fetching data: ", error);
-      setError(error);
-      favorisLoadedRef.current = false;
-      fetchFavorisId(id);
-    }
-  }
-
-  async function fetchSupprimerFavoris(vin) {
-    if (!URI || !id || vin == null || vin === "") return;
-
-    setFavorisId((prev) =>
-      (Array.isArray(prev) ? prev : []).filter(
-        (f) => String(f.vino__bouteille_id) !== String(vin)
+      const promise = fetch(
+        URI + "/" + "utilisateurId" + "/" + utilisateur + "/" + "favoris"
       )
-    );
-    favorisLoadedRef.current = true;
+        .then((response) => {
+          if (response.ok) {
+            return response.json();
+          }
+          throw response;
+        })
+        .then((data) => {
+          setFavorisId(Array.isArray(data) ? data : []);
+          favorisLoadedRef.current = true;
+          return data;
+        })
+        .catch((error) => {
+          console.error("Error fetching data: ", error);
+          setError(error);
+          throw error;
+        })
+        .finally(() => {
+          favorisFetchInFlightRef.current = null;
+        });
+      favorisFetchInFlightRef.current = promise;
+      return promise;
+    },
+    [URI]
+  );
 
-    try {
-      const response = await fetch(
-        URI + `/utilisateur/${id}/favoris/vin/${vin}`,
-        { method: "DELETE" }
-      );
-      if (!response.ok) throw response;
-    } catch (error) {
-      console.error("Error fetching data: ", error);
-      setError(error);
-      favorisLoadedRef.current = false;
-      fetchFavorisId(id);
+  const loadFavorisListFromApi = useCallback(async () => {
+    if (!URI || !id) return { ok: false };
+    if (favorisListFetchInFlightRef.current) {
+      return favorisListFetchInFlightRef.current;
     }
-  }
-
-  async function fetchFavorisId(utilisateur) {
-    if (!URI || !utilisateur) return;
-    if (favorisFetchInFlightRef.current) {
-      return favorisFetchInFlightRef.current;
-    }
-    const promise = fetch(
-      URI + "/" + "utilisateurId" + "/" + utilisateur + "/" + "favoris"
-    )
-      .then((response) => {
-        if (response.ok) {
-          return response.json();
-        }
-        throw response;
-      })
-      .then((data) => {
-        setFavorisId(Array.isArray(data) ? data : []);
-        favorisLoadedRef.current = true;
-        return data;
-      })
-      .catch((error) => {
+    const promise = (async () => {
+      try {
+        const response = await fetch(
+          URI + "/" + "utilisateur" + "/" + id + "/" + "favoris"
+        );
+        if (!response.ok) throw response;
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        return { ok: true, data: list };
+      } catch (error) {
         console.error("Error fetching data: ", error);
         setError(error);
-        throw error;
-      })
-      .finally(() => {
-        favorisFetchInFlightRef.current = null;
-      });
-    favorisFetchInFlightRef.current = promise;
+        return { ok: false, error };
+      } finally {
+        favorisListFetchInFlightRef.current = null;
+      }
+    })();
+    favorisListFetchInFlightRef.current = promise;
     return promise;
-  }
+  }, [URI, id]);
 
-  function ensureFavorisLoaded() {
+  const fetchFavorisList = useCallback(
+    async (options = {}) => {
+      const { force = false } = options;
+      if (!URI || !id) return { ok: false };
+
+      const cached = favorisListCacheRef.current;
+      if (cached && !force) {
+        loadFavorisListFromApi().then((result) => {
+          if (result.ok) {
+            favorisListCacheRef.current = result.data;
+          }
+        });
+        return { ok: true, data: cached, fromCache: true };
+      }
+
+      const result = await loadFavorisListFromApi();
+      if (result.ok) {
+        favorisListCacheRef.current = result.data;
+      } else {
+        favorisListCacheRef.current = null;
+      }
+      return result;
+    },
+    [URI, id, loadFavorisListFromApi]
+  );
+
+  const hasCachedFavoris = useCallback(() => {
+    return favorisListCacheRef.current !== null;
+  }, []);
+
+  const invalidateFavorisListCache = useCallback(() => {
+    favorisListCacheRef.current = null;
+  }, []);
+
+  const fetchAjouterFavoris = useCallback(
+    async (vin) => {
+      if (!URI || !id) return;
+      const vinId = vin?.vino__bouteille_id;
+      if (vinId == null || vinId === "") return;
+
+      const payload = {
+        vino__bouteille_id: vinId,
+        vino__utilisateur_id: vin?.vino__utilisateur_id || id,
+      };
+
+      setFavorisId((prev) => {
+        const list = Array.isArray(prev) ? prev : [];
+        if (list.some((f) => String(f.vino__bouteille_id) === String(vinId))) {
+          return list;
+        }
+        return [...list, { vino__bouteille_id: vinId }];
+      });
+      favorisLoadedRef.current = true;
+      invalidateFavorisListCache();
+
+      try {
+        const response = await fetch(URI + `/favoris/ajouter/favoris`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        if (!response.ok) throw response;
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+        setError(error);
+        favorisLoadedRef.current = false;
+        fetchFavorisId(id);
+      }
+    },
+    [URI, id, fetchFavorisId, invalidateFavorisListCache]
+  );
+
+  const fetchSupprimerFavoris = useCallback(
+    async (vin) => {
+      if (!URI || !id || vin == null || vin === "") return;
+
+      setFavorisId((prev) =>
+        (Array.isArray(prev) ? prev : []).filter(
+          (f) => String(f.vino__bouteille_id) !== String(vin)
+        )
+      );
+      favorisLoadedRef.current = true;
+      invalidateFavorisListCache();
+
+      try {
+        const response = await fetch(
+          URI + `/utilisateur/${id}/favoris/vin/${vin}`,
+          { method: "DELETE" }
+        );
+        if (!response.ok) throw response;
+      } catch (error) {
+        console.error("Error fetching data: ", error);
+        setError(error);
+        favorisLoadedRef.current = false;
+        fetchFavorisId(id);
+      }
+    },
+    [URI, id, fetchFavorisId, invalidateFavorisListCache]
+  );
+
+  const ensureFavorisLoaded = useCallback(() => {
     if (!URI || !id || favorisLoadedRef.current) return;
     fetchFavorisId(id);
-  }
+  }, [URI, id, fetchFavorisId]);
 
-  function prefetchFavorisId() {
+  const prefetchFavorisId = useCallback(() => {
+    prefetchFavorisChunk();
     ensureFavorisLoaded();
-  }
+    if (!favorisListCacheRef.current && !favorisListFetchInFlightRef.current) {
+      loadFavorisListFromApi().then((result) => {
+        if (result.ok) {
+          favorisListCacheRef.current = result.data;
+        }
+      });
+    }
+  }, [ensureFavorisLoaded, loadFavorisListFromApi]);
+
+  const hasCachedBouteilles = useCallback((cellierId) => {
+    return Boolean(bouteillesCacheRef.current[String(cellierId)]);
+  }, []);
+
+  const gererBouteilles = useCallback((idBouteilles) => {
+    setBouteilles(idBouteilles);
+  }, []);
+
+  const gererCellier = useCallback((idCellier) => {
+    cellierActifRef.current = String(idCellier);
+    setCellier(idCellier);
+  }, []);
+
+  const gererCible = useCallback((cibleId) => {
+    setCible(cibleId);
+  }, []);
+
+  const prefetchAjoutBouteille = useCallback(() => {
+    prefetchAjoutBouteilleChunk();
+  }, []);
+
+  const prefetchProfil = useCallback(() => {
+    // Profil is eager; still warm Admin chunk for admin users.
+    if (utilisateur?.privilege === "admin") {
+      prefetchAdminChunk();
+    }
+  }, [utilisateur]);
+
+  // Warm common lazy nav targets + inventaire data after login / user id ready.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const idle = window.requestIdleCallback
+      ? window.requestIdleCallback.bind(window)
+      : (cb) => window.setTimeout(cb, 400);
+    const cancel = window.cancelIdleCallback
+      ? window.cancelIdleCallback.bind(window)
+      : window.clearTimeout.bind(window);
+    const handle = idle(() => {
+      prefetchAjoutBouteilleChunk();
+      prefetchFavorisChunk();
+      if (id) {
+        prefetchVinsInventaire();
+      }
+      if (utilisateur?.privilege === "admin") {
+        prefetchAdminChunk();
+      }
+    });
+    return () => cancel(handle);
+  }, [isAuthenticated, id, utilisateur?.privilege, prefetchVinsInventaire]);
 
   // ---------------------------------- Rendering -----------------------------------------
   return (
@@ -883,6 +1207,8 @@ const AppliContent = ({
           username={username}
           prefetchVinsInventaire={prefetchVinsInventaire}
           prefetchFavorisId={prefetchFavorisId}
+          prefetchAjoutBouteille={prefetchAjoutBouteille}
+          prefetchProfil={prefetchProfil}
         />
       )}
       <div>
@@ -970,6 +1296,7 @@ const AppliContent = ({
                       setBouteilles={setBouteilles}
                       fetchVins={fetchVins}
                       hasCachedBouteilles={hasCachedBouteilles}
+                      onBouteillePatched={onBouteillePatched}
                       gererBouteilles={gererBouteilles}
                       gererCellier={gererCellier}
                       cellier={cellier}
@@ -998,6 +1325,7 @@ const AppliContent = ({
                       setBouteilles={setBouteilles}
                       fetchVins={fetchVins}
                       hasCachedBouteilles={hasCachedBouteilles}
+                      onBouteillePatched={onBouteillePatched}
                       gererBouteilles={gererBouteilles}
                       gererCellier={gererCellier}
                       cellier={cellier}
@@ -1023,6 +1351,8 @@ const AppliContent = ({
                       bouteilles={bouteilles}
                       setBouteilles={setBouteilles}
                       fetchVins={fetchVins}
+                      hasCachedBouteilles={hasCachedBouteilles}
+                      onBouteilleAjoutee={onBouteilleAjoutee}
                       fetchVinsInventaire={fetchVinsInventaire}
                       fetchStatsCelliers={fetchStatsCelliers}
                       fetchCelliers={fetchCelliers}
@@ -1030,6 +1360,7 @@ const AppliContent = ({
                       celliers={celliers}
                       cellier={cellier}
                       setCellier={setCellier}
+                      id={id}
                       URI={URI}
                       error={error}
                       setError={setError}
@@ -1148,6 +1479,8 @@ const AppliContent = ({
                       bouteilles={bouteilles}
                       setBouteilles={setBouteilles}
                       fetchVins={fetchVins}
+                      fetchFavorisList={fetchFavorisList}
+                      hasCachedFavoris={hasCachedFavoris}
                       gererBouteilles={gererBouteilles}
                       cellier={cellier}
                       celliers={celliers}
@@ -1179,6 +1512,8 @@ const AppliContent = ({
           resetBottomNav={resetBottomNav}
           prefetchVinsInventaire={prefetchVinsInventaire}
           prefetchFavorisId={prefetchFavorisId}
+          prefetchAjoutBouteille={prefetchAjoutBouteille}
+          prefetchProfil={prefetchProfil}
         />
       </div>
       <PiedDePage />

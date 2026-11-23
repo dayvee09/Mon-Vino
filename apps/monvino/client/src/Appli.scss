@@ -240,8 +240,10 @@
   }
 
   .Appli--container {
+    // Leave room for mobile bottom nav; avoid 85vh which stacks with
+    // Appli--entete and forces a pointless scrollbar on short pages (home).
     padding: 0 1.25rem 75px 1.25rem;
-    min-height: 85vh;
+    min-height: calc(100dvh - 220px);
     h1 {
       padding-top: 50px;
     }
@@ -251,15 +253,17 @@
     }
 
     @media only screen and (min-width: 768px) {
-      padding: 0 5vw 75px 5vw;
+      // Fixed NavDesktop (~70px) + entete band + fixed PiedDePage clearance.
+      padding: 0 5vw 100px 5vw;
+      min-height: calc(100dvh - 70px - 160px);
     }
 
     @media only screen and (min-width: 1200px) {
-      padding: 0 12vw 75px 12vw;
+      padding: 0 12vw 100px 12vw;
     }
 
     @media only screen and (min-width: 1800px) {
-      padding: 0 20vw 75px 20vw;
+      padding: 0 20vw 100px 20vw;
     }
   }
   // Override le style des MUI pour les alerts

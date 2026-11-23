@@ -43,6 +43,8 @@ export default function NavMobile({
 	resetBottomNav,
 	prefetchVinsInventaire,
 	prefetchFavorisId,
+	prefetchAjoutBouteille,
+	prefetchProfil,
 }) {
 	const location = useLocation();
 	const activeIndex = bottomNavIndexFromPath(location.pathname);
@@ -93,6 +95,8 @@ export default function NavMobile({
                     : undefined
                 }
                 disabled={!emailUtilisateur}
+                onMouseEnter={prefetchProfil}
+                onFocus={prefetchProfil}
               />
             ) : (
               <BottomNavigationAction
@@ -105,6 +109,8 @@ export default function NavMobile({
                     : undefined
                 }
                 disabled={!emailUtilisateur}
+                onMouseEnter={prefetchProfil}
+                onFocus={prefetchProfil}
               />
             )}
             <BottomNavigationAction
@@ -113,6 +119,8 @@ export default function NavMobile({
               component={Link}
               to={`/vins`}
 			  aria-label="bouton-ajouter-bouteille"
+              onMouseEnter={prefetchAjoutBouteille}
+              onFocus={prefetchAjoutBouteille}
             />
             <BottomNavigationAction className="disabledIcone" disabled={true} aria-label="bouton-ajouter-bouteille"/>
             <BottomNavigationAction
