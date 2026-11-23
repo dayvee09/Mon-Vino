@@ -25,22 +25,7 @@ if [ ! -f "$ACCESBD" ]; then
   echo "Created ${ACCESBD} for the dev container database."
 fi
 
-# Apache DocumentRoot is apps/portfolio/dist. Ensure it exists before Apache starts.
-mkdir -p apps/portfolio/dist
-if [ ! -f apps/portfolio/dist/index.html ]; then
-  cat > apps/portfolio/dist/index.html <<'EOF'
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>AlpineCraft</title></head>
-<body>
-  <p>Portfolio build missing. From the repo root run <code>./scripts/build-portfolio.sh</code>
-  (or <code>cd apps/portfolio && trunk serve</code> for live reload on :8080).</p>
-  <p><a href="/monvino/">Mon Vino</a> · <a href="/api-php/">API</a></p>
-</body>
-</html>
-EOF
-  echo "Created placeholder apps/portfolio/dist/index.html (run build-portfolio.sh for the real site)."
-fi
+mkdir -p .devcontainer/www
 
 cd apps/monvino/client
 npm install

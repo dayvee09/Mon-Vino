@@ -1,25 +1,21 @@
-# AlpineCraft
+# Mon Vino
 
-Lean web software, built with AI.
+Wine cellar web app (React + PHP API + Cognito).
 
 ## Layout
 
-**Apps** (products) live under `apps/`. **Shared** tooling stays at the repo root.
-
 | Path | Role |
 |------|------|
-| [`apps/portfolio/`](./apps/portfolio/) | Portfolio (Rust → WASM) → `/` |
-| [`apps/monvino/`](./apps/monvino/) | Mon Vino cellar app → `/monvino/` |
-| [`scripts/`](./scripts/) | Build, setup, deploy (all apps) |
-| [`.devcontainer/`](./.devcontainer/) | Shared Docker / Apache for nested local URLs |
-| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Production + LAN (`192.168.0.105`) |
-| `dist/` | Generated releases only (gitignored) |
-
-Production URLs: `https://alpinecraft.cc/` and `https://alpinecraft.cc/monvino/`.
+| [`apps/monvino/client/`](./apps/monvino/client/) | React frontend (`homepage`: `/monvino`) |
+| [`apps/monvino/api-php/`](./apps/monvino/api-php/) | REST API |
+| [`apps/monvino/database/`](./apps/monvino/database/) | Starter SQL |
+| [`scripts/`](./scripts/) | Setup, build, deploy |
+| [`.devcontainer/`](./.devcontainer/) | Docker / Apache local URLs |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Production / LAN deploy |
 
 ## Development
 
-Prérequis : **Node.js 20+** (voir `.nvmrc`), ou le **Dev Container**.
+Requires **Node.js 20+** (see `.nvmrc`), or the **Dev Container**.
 
 ```bash
 ./scripts/dev-setup.sh
@@ -27,45 +23,38 @@ cd apps/monvino/client && npm install && npm start
 # → http://localhost:3000/monvino/
 ```
 
-Dans le conteneur, Apache sur le port **80** reprend le nesting de production :
+In the container, Apache on port **80** mirrors a nested deploy:
 
-| Local | Production |
-|-------|------------|
-| `http://localhost/` | portfolio |
-| `http://localhost/monvino/` | Mon Vino |
-| `http://localhost/api-php/` | API PHP |
+| Local | Serves |
+|-------|--------|
+| `http://localhost/monvino/` | Mon Vino (proxied to CRA `:3000`) |
+| `http://localhost/api-php/` | PHP API |
 
-Portfolio live : `cd apps/portfolio && trunk serve` → `:8080`.
-
-Base de données : `apps/monvino/database/monvino-starter.sql` (voir son README).
+Database seed: `apps/monvino/database/monvino-starter.sql` (see its README).
 
 ## Build & deploy
 
 ```bash
-./scripts/build-portfolio.sh   # → dist/portfolio-release-*
-./scripts/build-monvino.sh     # → dist/monvino-release-*
-./scripts/build-all.sh         # both
+./scripts/build-monvino.sh   # → dist/monvino-release-*
 ```
 
-**LAN deploy without putting SSH secrets in Git** (uses your local SSH key/agent):
+LAN deploy (SSH agent; no secrets in Git):
 
 ```bash
 cp deploy.env.example deploy.env   # set DEPLOY_USER
 ssh-copy-id youruser@192.168.0.105 # once
-./scripts/build-all.sh
+./scripts/build-monvino.sh
 ./scripts/deploy.sh
 ```
 
-Or copy the tarballs from `dist/` manually — see **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
+See **[DEPLOYMENT.md](./DEPLOYMENT.md)**.
 
 ## Scripts
 
 | Script | Description |
 |--------|-------------|
-| `scripts/dev-setup.sh` | Config locale (DB, hooks Git) |
-| `scripts/build-portfolio.sh` | Build Rust/WASM + tarball portfolio |
-| `scripts/build-monvino.sh` | Build React + tarball Mon Vino |
-| `scripts/build-all.sh` | Both builds |
-| `scripts/deploy.sh` | rsync vers le serveur via SSH agent |
-| `scripts/setup-git-hooks.sh` | Hook anti-secrets |
-| `scripts/untrack-sensitive.sh` | Retire les fichiers sensibles de l’index Git |
+| `scripts/dev-setup.sh` | Local config (DB template, Git hooks) |
+| `scripts/build-monvino.sh` | Build React + tarball |
+| `scripts/deploy.sh` | rsync to server via SSH agent |
+| `scripts/setup-git-hooks.sh` | Secret-blocking pre-commit hook |
+| `scripts/untrack-sensitive.sh` | Untrack sensitive files from the index |

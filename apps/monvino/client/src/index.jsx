@@ -6,7 +6,7 @@ import Appli from "./Appli";
 import { Amplify } from "aws-amplify";
 import config from "./aws-exports";
 
-// Matches package.json "homepage": "/monvino" (prod: alpinecraft.cc/monvino/).
+// Matches package.json "homepage": "/monvino".
 const publicUrl = process.env.PUBLIC_URL || "/monvino";
 const routerBasename =
   publicUrl === "/" ? "" : publicUrl.replace(/\/$/, "");

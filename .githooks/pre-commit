@@ -8,7 +8,9 @@ cd "$ROOT"
 BLOCKED_PATTERNS=(
   'AccesBd\.cls\.php$'
   'config\.local\.php$'
-  '\.env(\.|$)'
+  # Real env files only — allow *.example templates
+  '(^|/)\.env$'
+  '(^|/)\.env\.[^/]+$'
   'aws-exports\.js$'
   'team-provider-info\.json$'
   'amplify/#current-cloud-backend'
@@ -30,6 +32,13 @@ fi
 BLOCKED=()
 while IFS= read -r file; do
   [ -n "$file" ] || continue
+  # Templates are safe to commit
+  case "$file" in
+    *.example|*.example.*|*example.js|*example.php) continue ;;
+  esac
+  if echo "$file" | grep -qE '\.example(\.|$)'; then
+    continue
+  fi
   for pattern in "${BLOCKED_PATTERNS[@]}"; do
     if echo "$file" | grep -qE "$pattern"; then
       BLOCKED+=("$file")

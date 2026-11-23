@@ -12,10 +12,11 @@ const awsmobile = {
     domain: "your-domain.auth.us-east-1.amazoncognito.com",
     scope: ["phone", "email", "openid", "profile", "aws.cognito.signin.user.admin"],
     // Cognito app client must allow EVERY URL listed (comma-separated).
+    // Replace https://YOUR_DOMAIN/monvino/ with your real production URL.
     redirectSignIn:
-      "http://localhost/monvino/,http://localhost:3000/monvino/,https://alpinecraft.cc/monvino/",
+      "http://localhost/monvino/,http://localhost:3000/monvino/,https://YOUR_DOMAIN/monvino/",
     redirectSignOut:
-      "http://localhost/monvino/,http://localhost:3000/monvino/,https://alpinecraft.cc/monvino/",
+      "http://localhost/monvino/,http://localhost:3000/monvino/,https://YOUR_DOMAIN/monvino/",
     responseType: "code",
   },
   federationTarget: "COGNITO_USER_POOLS",
