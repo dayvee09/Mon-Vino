@@ -29,7 +29,7 @@ class AccesBd
             ];
 
             $this->pdo = new PDO(
-                "mysql:host={$host};dbname={$name};charset=utf8",
+                "mysql:host={$host};dbname={$name};charset=utf8mb4",
                 $user,
                 $pass,
                 $options

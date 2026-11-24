@@ -164,14 +164,14 @@ body.fiche-zoom-active .MuiDialog-root {
   display: flex;
   justify-content: center;
   min-height: 0;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
   padding: 8px 12px;
-  touch-action: pan-x pan-y;
+  // Let JS own pinch/pan; avoid browser page-zoom fighting the lightbox.
+  touch-action: none;
 }
 
 .fiche-image-zoom-overlay--zoomed .fiche-image-zoom-stage {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .fiche-image-zoom-img {
@@ -182,15 +182,28 @@ body.fiche-zoom-active .MuiDialog-root {
   display: block;
   flex-shrink: 0;
   height: auto;
-  max-height: calc(100dvh - 130px);
+  max-height: calc(100dvh - 160px);
   max-width: 100%;
   object-fit: contain;
+  transform-origin: center center;
   transition: transform 0.22s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
   width: auto;
+  will-change: transform;
 
   &--zoomed {
-    cursor: zoom-out;
+    cursor: grab;
   }
+
+  &--gesturing {
+    cursor: grabbing;
+    transition: none;
+  }
+}
+
+body.fiche-zoom-active {
+  touch-action: none;
 }
 
 @media only screen and (min-width: 481px) {

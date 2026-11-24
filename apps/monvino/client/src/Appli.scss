@@ -1,4 +1,22 @@
 .Appli {
+  // Mobile: one scrollport sized to the visible viewport. Short pages (admin,
+  // home with few cellars) must not grow a document scrollbar.
+  @media only screen and (max-width: 767px) {
+    box-sizing: border-box;
+    height: 100%;
+    max-height: 100svh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scrollbar-width: thin;
+
+    &::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+  }
+
   .Appli--entete {
     background-color: #152440;
     background-position: center;
@@ -12,9 +30,11 @@
       url(./img/jpg/background-accueil.jpg);
     border-bottom: #cc4240 5px solid;
     color: #f3f5eb;
-    margin-top: -15px;
+    // Negative margin clips under .Appli's overflow scrollport on mobile.
+    margin-top: 0;
     min-height: 110px;
-    padding: 40px 1.25rem 20px 1.25rem;
+    // Keep search/filters clear of browser chrome + notch.
+    padding: calc(40px + env(safe-area-inset-top, 0px)) 1.25rem 20px 1.25rem;
 
     .Appli--search-bar-container {
       display: flex;
@@ -240,16 +260,18 @@
   }
 
   .Appli--container {
-    // Leave room for mobile bottom nav; avoid 85vh which stacks with
-    // Appli--entete and forces a pointless scrollbar on short pages (home).
-    padding: 0 1.25rem 75px 1.25rem;
-    min-height: calc(100dvh - 220px);
+    // Bottom padding clears fixed NavMobile (+ center FAB). No min-height on
+    // mobile — short pages stay within the .Appli 100svh scrollport.
+    box-sizing: border-box;
+    padding: 0 1.25rem 90px 1.25rem;
+    min-height: 0;
+    max-width: 100%;
     h1 {
       padding-top: 50px;
     }
 
     @media only screen and (min-width: 560px) {
-      padding: 0 3rem 75px 3rem;
+      padding: 0 3rem 90px 3rem;
     }
 
     @media only screen and (min-width: 768px) {
@@ -295,8 +317,19 @@
   --amplify-components-tabs-item-active-color: #cc4240;
   --amplify-components-tabs-item-color: #152440;
   --amplify-components-tabs-item-hover-border-color: #f1ab50;
+  --amplify-components-fieldcontrol-border-color: rgba(21, 36, 64, 0.28);
+  --amplify-components-fieldcontrol-border-radius: 8px;
+  --amplify-components-fieldcontrol-border-width: 1.5px;
   --amplify-components-fieldcontrol-focus-border-color: #f1ab50;
+  --amplify-components-fieldcontrol-color: #152440;
+  --amplify-components-button-border-radius: 8px;
+  --amplify-components-button-hover-border-color: #f1ab50;
+  --amplify-radii-small: 8px;
+  --amplify-radii-medium: 10px;
 
+  // Solid color first — overscroll rubber-banding ignores background-image
+  // and briefly shows whatever is behind (body was off-white → white flash).
+  background-color: #101e33;
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
@@ -309,7 +342,7 @@
   color: #f3f5eb;
   font-family: "Raleway", sans-serif;
   font-weight: 200;
-  padding: 25px 1.25rem;
+  padding: 20px 0 28px;
   text-align: center;
 
   position: fixed;
@@ -318,20 +351,33 @@
   left: 0;
   right: 0;
   overflow: auto;
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
 
   &::-webkit-scrollbar {
     display: none;
   }
 
   [data-amplify-container] {
-    max-width: 600px;
+    box-sizing: border-box;
     margin: auto;
-    padding-bottom: 25px;
+    max-width: 600px;
+    padding: 0 0 25px;
+    width: 100%;
+  }
+
+  .Authenticator__brand {
+    align-items: center;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 8px 1.25rem 18px;
   }
 
   .logo {
-    padding-bottom: 25px;
-    width: 200px;
+    display: block;
+    padding-bottom: 0;
+    width: min(200px, 58vw);
   }
 
   .amplify-heading {
@@ -340,7 +386,108 @@
 
   [data-amplify-router] {
     background-color: #f3f5eb;
+    border-radius: 0;
+    box-shadow: none;
+    margin: 0;
+    max-width: none;
     width: 100%;
+  }
+
+  // Comfortable inner padding on the full-bleed mobile card.
+  .amplify-tabs,
+  .amplify-flex {
+    box-sizing: border-box;
+  }
+
+  form[data-amplify-form],
+  .amplify-tabs {
+    padding-left: 1.1rem;
+    padding-right: 1.1rem;
+  }
+
+  // Phones: edge-to-edge auth card. Tablets+ keep a centered panel.
+  @media only screen and (min-width: 560px) {
+    padding: 28px 1.25rem;
+
+    [data-amplify-container] {
+      filter: drop-shadow(0 14px 28px rgba(0, 0, 0, 0.32));
+      padding-bottom: 25px;
+    }
+
+    // Router + admin footer read as one rounded card.
+    [data-amplify-router] {
+      border-radius: 12px 12px 0 0;
+      box-shadow: none;
+      overflow: hidden;
+    }
+
+    .LocalAdminLogin {
+      border-radius: 0 0 12px 12px;
+      box-shadow: none;
+      margin-top: 0;
+      max-width: 100%;
+    }
+
+    .Authenticator__brand {
+      padding: 4px 0 22px;
+    }
+
+    .logo {
+      width: 200px;
+    }
+
+    form[data-amplify-form],
+    .amplify-tabs {
+      padding-left: 0;
+      padding-right: 0;
+    }
+
+    .amplify-input,
+    .amplify-field__control,
+    .amplify-passwordfield .amplify-input,
+    .amplify-field-group input {
+      background-color: #fff;
+      border: 1.5px solid rgba(21, 36, 64, 0.28);
+      border-radius: 8px;
+      box-shadow: none;
+      color: #152440;
+      min-height: 44px;
+      padding: 0.7rem 0.85rem;
+
+      &:hover {
+        border-color: rgba(21, 36, 64, 0.45);
+      }
+
+      &:focus,
+      &:focus-visible {
+        border-color: #f1ab50;
+        box-shadow: 0 0 0 3px rgba(241, 171, 80, 0.28);
+        outline: none;
+      }
+    }
+
+    .amplify-field-group__outer-end .amplify-button,
+    .amplify-field-group__outer-end button {
+      border-radius: 0 8px 8px 0;
+    }
+
+    .amplify-button--primary {
+      border-radius: 8px;
+      min-height: 44px;
+    }
+
+    .amplify-button:not(.amplify-button--primary):not(.amplify-button--link) {
+      background-color: #fff;
+      border: 1.5px solid rgba(21, 36, 64, 0.28);
+      border-radius: 8px;
+      color: #152440;
+      min-height: 44px;
+
+      &:hover {
+        background-color: #fff;
+        border-color: #f1ab50;
+      }
+    }
   }
 
   input {
@@ -348,13 +495,14 @@
 
     &:focus {
       border-color: #f1ab50;
-      box-shadow: none;
+      box-shadow: 0 0 0 3px rgba(241, 171, 80, 0.28);
     }
   }
 
   .amplify-button--primary {
     background-color: #152440;
     border-color: #152440;
+    border-radius: 8px;
     color: #f3f5eb;
     font-family: Alata;
     font-weight: 400;

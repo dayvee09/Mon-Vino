@@ -20,10 +20,16 @@ export default function ListeInventaire(props) {
   const navigate = useNavigate();
   useEffect(() => {
     if (idCellier > 0 && props.bouteilleId) {
+      // Close the stocks drawer before route change so MUI cannot restore
+      // the inventaire scroll offset onto the cellier view.
+      props.setOpen?.(false);
       props.gererCellier(idCellier);
       props.gererCible(props.bouteilleId);
       props.fetchVins(idCellier);
       props.fetchNomCellier(idCellier);
+      const scroller = document.querySelector(".Appli");
+      if (scroller) scroller.scrollTop = 0;
+      window.scrollTo(0, 0);
       navigate(`/cellier/${idCellier}/vins/${props.bouteilleId}`, {
         replace: true,
       });

@@ -185,25 +185,29 @@ function ListeBouteilles(props) {
   const labelTri =
     OPTIONS_TRI.find((option) => option.value === sortType)?.label ?? "Tout";
 
+  // Jump to the bottle highlighted from inventaire stocks. Scroll the .Appli
+  // scrollport (not window) — window.scrollTo is a no-op inside the mobile shell
+  // and used to leave inventaire's scroll offset clipping the header.
   useEffect(() => {
-    if (cible) {
-      if (document.querySelectorAll("[data-id]").length > 1) {
-        if (
-          document.querySelector(`[data-id="${cible}"]`) &&
-          unique === false
-        ) {
-          let cibleElt = document.querySelector(`[data-id="${cible}"]`);
-          let target = cibleElt.getBoundingClientRect().top + window.scrollY;
-          window.scrollTo({
-            top: target,
-            behavior: "smooth",
-          });
-        } else if (bouteilles.length > PAGE_SIZE) {
-          setUnique(true);
-        }
-      }
+    if (!cible || unique) return;
+    const cibleElt = document.querySelector(`[data-id="${cible}"]`);
+    if (!cibleElt) {
+      if (bouteilles.length > PAGE_SIZE) setUnique(true);
+      return;
     }
-  }, [props.bouteilles]);
+    const scroller = cibleElt.closest(".Appli");
+    if (!scroller) return;
+    const offset =
+      cibleElt.getBoundingClientRect().top -
+      scroller.getBoundingClientRect().top +
+      scroller.scrollTop;
+    // Bottle already on the first screen — pin to top so the header stays visible.
+    if (offset < scroller.clientHeight * 0.4) {
+      scroller.scrollTop = 0;
+      return;
+    }
+    scroller.scrollTo({ top: Math.max(0, offset - 8), behavior: "smooth" });
+  }, [props.bouteilles, cible, unique, bouteilles.length]);
 
   useEffect(() => {
     if (cible && bouteilles.length > PAGE_SIZE && indexBouteille >= PAGE_SIZE) {

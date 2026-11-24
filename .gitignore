@@ -57,6 +57,9 @@ apps/monvino/database/*
 
 # --- Local deploy config (host/user only; never commit secrets) ---
 deploy.env
+*.ppk
+monvinoprivate*
+ddeschenes_private*
 
 # --- IDE ---
 .idea/

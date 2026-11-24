@@ -523,29 +523,41 @@ export default function FrmAjoutBouteille(props) {
                   return `${option.nom}${mill}${format}`;
                 }}
                 renderOption={(props, option) => {
+                  const { className, ...optionProps } = props;
                   const mill =
                     option.millesime && Number(option.millesime) !== 2000
-                      ? `${option.millesime} · `
-                      : "";
+                      ? String(option.millesime)
+                      : null;
                   const prix =
                     option.prix_saq != null && option.prix_saq !== ""
-                      ? ` · ${Number(option.prix_saq).toFixed(2)} $`
-                      : "";
+                      ? `${Number(option.prix_saq).toFixed(2)} $`
+                      : null;
+                  const meta = [option.format, mill, prix].filter(Boolean);
                   return (
-                    <li {...props} key={option.id}>
-                      {option.nom}
-                      {option.format ? ` — ${option.format}` : ""}
-                      {mill || prix ? (
-                        <span style={{ opacity: 0.7, marginLeft: "0.35em" }}>
-                          ({mill}
-                          {option.code_saq}
-                          {prix})
+                    <li
+                      {...optionProps}
+                      key={option.id}
+                      className={["saq-option", className]
+                        .filter(Boolean)
+                        .join(" ")}
+                    >
+                      <span className="saq-option__nom">
+                        {option.nom || "Sans nom"}
+                      </span>
+                      {meta.length > 0 && (
+                        <span className="saq-option__meta">
+                          {meta.map((part, i) => (
+                            <React.Fragment key={`${option.id}-m-${i}`}>
+                              {i > 0 && (
+                                <span className="saq-option__sep" aria-hidden>
+                                  ·
+                                </span>
+                              )}
+                              <span>{part}</span>
+                            </React.Fragment>
+                          ))}
                         </span>
-                      ) : option.code_saq ? (
-                        <span style={{ opacity: 0.7, marginLeft: "0.35em" }}>
-                          ({option.code_saq})
-                        </span>
-                      ) : null}
+                      )}
                     </li>
                   );
                 }}

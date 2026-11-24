@@ -24,7 +24,7 @@ SET time_zone = "+00:00";
 CREATE TABLE `vino__type` (
   `id` int(11) NOT NULL,
   `type` varchar(20) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `vino__type` (`id`, `type`) VALUES
 (1, 'Vin rouge'),
@@ -57,7 +57,7 @@ CREATE TABLE `vino__cellier` (
   `id` int(11) NOT NULL,
   `nom` varchar(100) NOT NULL,
   `vino__utilisateur_id` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `vino__cellier` (`id`, `nom`, `vino__utilisateur_id`) VALUES
 (1, 'Catalogue SAQ', 1),
@@ -82,7 +82,7 @@ CREATE TABLE `vino__bouteille` (
   `vino__type_id` int(11) NOT NULL,
   `millesime` int(11) DEFAULT NULL,
   `personnalise` tinyint(4) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `vino__bouteille` (`id`, `nom`, `image`, `code_saq`, `pays`, `description`, `prix_saq`, `url_saq`, `url_img`, `format`, `vino__type_id`, `millesime`, `personnalise`) VALUES
 (1, 'Borsao Seleccion', 'https://www.saq.com/media/catalog/product/1/0/10324623-1_1602104750.png?width=367&height=550&canvas=367,550&quality=80&fit=bounds', '10324623', 'Espagne', 'Vin rouge — Espagne, 750 ml — Code SAQ : 10324623', 11, 'https://www.saq.com/page/fr/saqcom/vin-rouge/borsao-seleccion/10324623', '//s7d9.scene7.com/is/image/SAQ/10324623_is?$saq-rech-prod-gril$', '750 ml', 1, 2000, 0),
@@ -102,7 +102,7 @@ CREATE TABLE `vino__bouteille_has_vino__cellier` (
   `date_achat` date DEFAULT NULL,
   `garde_jusqua` varchar(200) DEFAULT NULL,
   `notes` varchar(200) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO `vino__bouteille_has_vino__cellier` (`vino__bouteille_id`, `vino__cellier_id`, `quantite`, `date_achat`, `garde_jusqua`, `notes`) VALUES
 (1, 1, 1, '2024-01-15', '2026', 'Catalogue SAQ'),
@@ -120,7 +120,7 @@ INSERT INTO `vino__bouteille_has_vino__cellier` (`vino__bouteille_id`, `vino__ce
 CREATE TABLE `vino__favoris` (
   `vino__bouteille_id` int(11) NOT NULL,
   `vino__utilisateur_id` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 -- Indexes

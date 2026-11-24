@@ -1,11 +1,19 @@
 .LocalAdminLogin {
   background-color: #f3f5eb;
-  border-top: 1px solid #e2e2e273;
+  border-top: 1px solid rgba(21, 36, 64, 0.1);
+  box-sizing: border-box;
   margin: 0 auto;
   max-width: 600px;
-  padding: 1.25rem 1.5rem 1.5rem;
+  padding: 1.25rem 1.15rem 1.5rem;
   text-align: left;
   width: 100%;
+
+  @media only screen and (min-width: 560px) {
+    // Bottom corners complete the auth card started by [data-amplify-router].
+    border-radius: 0 0 12px 12px;
+    overflow: hidden;
+    padding: 1.15rem 1.75rem 1.45rem;
+  }
 
   &--collapsed {
     text-align: center;
@@ -61,16 +69,21 @@
 
   &__input {
     background: #fff;
-    border: 1px solid #c5c5c5;
-    border-radius: 4px;
+    border: 1.5px solid rgba(21, 36, 64, 0.28);
+    border-radius: 8px;
     color: #152440;
     font-family: Raleway, sans-serif;
     font-size: 0.95rem;
-    padding: 0.65rem 0.75rem;
+    min-height: 44px;
+    padding: 0.7rem 0.85rem;
+
+    &:hover {
+      border-color: rgba(21, 36, 64, 0.45);
+    }
 
     &:focus {
       border-color: #f1ab50;
-      box-shadow: none;
+      box-shadow: 0 0 0 3px rgba(241, 171, 80, 0.28);
       outline: none;
     }
   }
@@ -97,8 +110,8 @@
   &__cancel {
     appearance: none;
     background: transparent;
-    border: 1px solid #152440;
-    border-radius: 4px;
+    border: 1.5px solid #152440;
+    border-radius: 8px;
     color: #152440;
     cursor: pointer;
     font-family: Alata, sans-serif;
@@ -115,8 +128,8 @@
   &__submit {
     appearance: none;
     background: #152440;
-    border: 1px solid #152440;
-    border-radius: 4px;
+    border: 1.5px solid #152440;
+    border-radius: 8px;
     color: #f3f5eb;
     cursor: pointer;
     font-family: Alata, sans-serif;
