@@ -1,5 +1,10 @@
 RewriteEngine On
 
+# Block sensitive / diagnostic files before the front-controller rewrite.
+RewriteRule (?i)^(config\.local\.php|config\.local\.example\.php|test-curl\.php)$ - [F,L]
+RewriteRule (?i)\.sql$ - [F,L]
+RewriteRule (?i)(^|/)\. - [F,L]
+
 # Pass Authorization to PHP (CGI/Apache often strip it otherwise).
 RewriteCond %{HTTP:Authorization} .
 RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
@@ -7,3 +12,10 @@ RewriteRule ^ - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 RewriteRule ^.*php$ index.php [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule . index.php [L]
+
+# Session cookie hygiene (mod_php + AllowOverride All).
+<IfModule mod_php.c>
+  php_flag session.cookie_httponly On
+  php_flag session.use_strict_mode On
+  php_flag session.use_only_cookies On
+</IfModule>
