@@ -1,6 +1,17 @@
-@media only screen and (max-width: 768px) {
-  html::-webkit-scrollbar {
-    display: none;
+html {
+  overflow-x: hidden;
+
+  // Mobile: lock to the *small* viewport (URL bar visible). 100dvh is taller
+  // than the visible area and creates a phantom vertical scrollbar on short pages.
+  @media only screen and (max-width: 767px) {
+    height: 100svh;
+    overflow: hidden;
+  }
+
+  // Login screen: match Authenticator navy so rubber-band overscroll
+  // never flashes the default light page background.
+  &.auth-screen {
+    background-color: #101e33;
   }
 }
 
@@ -8,12 +19,29 @@ body {
   background-color: #f3f5eb92;
   font-family: raleway;
   font-size: 0.7rem;
-  margin: auto;
-  // Space for fixed mobile bottom nav only — desktop footer is position:fixed.
-  padding-bottom: 50px;
+  margin: 0;
+  padding-bottom: 0;
 
-  @media only screen and (min-width: 768px) {
-    padding-bottom: 0;
+  @media only screen and (max-width: 767px) {
+    height: 100%;
+    overflow: hidden;
+  }
+
+  &.auth-screen {
+    background-color: #101e33;
+    overscroll-behavior-y: none;
+
+    main {
+      background-color: #101e33;
+      min-height: 100%;
+    }
+  }
+}
+
+#racine {
+  @media only screen and (max-width: 767px) {
+    height: 100%;
+    overflow: hidden;
   }
 }
 

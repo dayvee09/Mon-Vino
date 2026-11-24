@@ -21,6 +21,13 @@
 	font-size: 12px;
 	font-weight: 400;
 
+	&__meta {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		min-width: 0;
+	}
+
 	&__copyright,
 	.nav-link-help {
 		color: #f3f5eb;
@@ -28,6 +35,10 @@
 
 	&__copyright {
 		margin: 0;
+	}
+
+	&__home {
+		align-self: flex-start;
 	}
 
 	.nav-link-help {
@@ -46,6 +57,14 @@
 	@media only screen and (min-width: 768px) {
 		position: fixed;
 		padding: 25px 50px 25px 50px;
+	}
+}
+
+// Authenticated mobile uses NavMobile; an in-flow footer under it only
+// creates empty scroll on short pages (home). Keep footer on .Login.
+.Appli .PiedDePage {
+	@media only screen and (max-width: 767px) {
+		display: none;
 	}
 }
 

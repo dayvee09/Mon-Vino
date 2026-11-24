@@ -1,0 +1,41 @@
+.SiteHomeLink {
+  align-items: center;
+  display: inline-flex;
+  font-family: Raleway, sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  gap: 0.35rem;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-decoration: none;
+  text-underline-offset: 0.18em;
+  transition: color 0.15s ease, opacity 0.15s ease;
+
+  &__arrow {
+    display: block;
+    flex-shrink: 0;
+    opacity: 0.9;
+  }
+
+  &--on-dark {
+    color: rgba(243, 245, 235, 0.72);
+
+    &:hover,
+    &:focus-visible {
+      color: #f1ab50;
+      outline: none;
+      text-decoration: underline;
+    }
+  }
+
+  &--on-light {
+    color: rgba(21, 36, 64, 0.55);
+
+    &:hover,
+    &:focus-visible {
+      color: #cc4240;
+      outline: none;
+      text-decoration: underline;
+    }
+  }
+}

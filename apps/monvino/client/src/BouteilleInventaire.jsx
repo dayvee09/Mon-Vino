@@ -235,6 +235,9 @@ export default function BouteilleInventaire(props) {
             onOpen={toggleDrawer(true)}
             swipeAreaWidth={drawerBleeding}
             disableSwipeToOpen={true}
+            // Body scroll-lock restores inventaire scroll after navigate and
+            // tucks the cellier header under the browser chrome on mobile.
+            disableScrollLock
           >
             <StyledBox
               sx={{

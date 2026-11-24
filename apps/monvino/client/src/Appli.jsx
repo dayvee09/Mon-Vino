@@ -2,7 +2,7 @@
 
 import React, { Suspense, lazy } from "react";
 import { Route, Routes, Navigate, useLocation, Link } from "react-router-dom";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from "react";
 import { Hub } from "aws-amplify/utils";
 import {
   Authenticator,
@@ -27,6 +27,7 @@ import {
   clearLocalSession,
 } from "./localAuth";
 import LocalAdminLogin from "./LocalAdminLogin";
+import SiteHomeLink from "./SiteHomeLink";
 import { email } from "./utilisateur.js";
 import Logo from "./img/png/logo-jaune.png";
 import { formFields } from "./aws-form-traduction.js";
@@ -154,6 +155,7 @@ const AppliContent = ({
   const cellierActifRef = useRef("");
 
   const location = useLocation();
+  const appliScrollRef = useRef(null);
 
   useEffect(() => {
     const match = location.pathname.match(/\/cellier\/(\d+)\/vins/);
@@ -161,6 +163,30 @@ const AppliContent = ({
       cellierActifRef.current = match[1];
       setCellier(match[1]);
     }
+  }, [location.pathname]);
+
+  // .Appli is the mobile scrollport. Inventaire → stocks drawer → cellier
+  // used to keep the old scrollTop, tucking the header under the URL bar.
+  // useLayoutEffect runs before paint; follow-up ticks beat MUI scroll unlock.
+  useLayoutEffect(() => {
+    const resetScroll = () => {
+      const node = appliScrollRef.current;
+      if (node) node.scrollTop = 0;
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+    resetScroll();
+    const raf = requestAnimationFrame(resetScroll);
+    const t0 = window.setTimeout(resetScroll, 0);
+    const t1 = window.setTimeout(resetScroll, 50);
+    const t2 = window.setTimeout(resetScroll, 200);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t0);
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
   }, [location.pathname]);
 
   function applyUtilisateur(user, userEmail) {
@@ -1189,7 +1215,10 @@ const AppliContent = ({
 
   // ---------------------------------- Rendering -----------------------------------------
   return (
-    <div className={isAuthenticated ? "Appli" : "Login"}>
+    <div
+      ref={appliScrollRef}
+      className={isAuthenticated ? "Appli" : "Login"}
+    >
       {isAuthenticated && isLocalAuth && localSession?.passwordIsDefault && (
         <div className="LocalAuthNotice" role="status">
           Mot de passe par défaut détecté — changez-le dans{" "}
@@ -1530,7 +1559,28 @@ function resolveApiUri() {
 
 function AppliGate() {
   const [localSession, setLocalSession] = useState(() => readLocalSession());
+  const { authStatus } = useAuthenticator((ctx) => [ctx.authStatus]);
   const apiUri = resolveApiUri();
+  const onAuthScreen =
+    !localSession?.token && authStatus !== "authenticated";
+
+  // Keep html/body navy while the login shell is up so mobile overscroll
+  // never flashes the default light page background.
+  useEffect(() => {
+    const root = document.documentElement;
+    const body = document.body;
+    if (onAuthScreen) {
+      root.classList.add("auth-screen");
+      body.classList.add("auth-screen");
+    } else {
+      root.classList.remove("auth-screen");
+      body.classList.remove("auth-screen");
+    }
+    return () => {
+      root.classList.remove("auth-screen");
+      body.classList.remove("auth-screen");
+    };
+  }, [onAuthScreen]);
 
   if (localSession?.token) {
     return (
@@ -1549,7 +1599,12 @@ function AppliGate() {
       formFields={formFields}
       components={{
         Header() {
-          return <img className="logo" src={Logo} alt="logo-mon-vino" />;
+          return (
+            <div className="Authenticator__brand">
+              <SiteHomeLink tone="on-dark" />
+              <img className="logo" src={Logo} alt="logo-mon-vino" />
+            </div>
+          );
         },
         Footer() {
           return (

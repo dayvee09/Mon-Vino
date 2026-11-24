@@ -1,5 +1,6 @@
 import * as React from "react";
 import "./Profil.scss";
+import SiteHomeLink from "./SiteHomeLink";
 import FrmEmail from "./FrmEmail";
 import FrmPassword from "./FrmPassword";
 import FrmUsername from "./FrmUsername";
@@ -275,6 +276,9 @@ export default function Profil(props) {
               </button>
             </div>
           )}
+          <div className="Profil--site-home">
+            <SiteHomeLink tone="on-light" />
+          </div>
         </div>
         <Dialog
           PaperProps={{ sx: { backgroundColor: "#f3f5eb" } }}

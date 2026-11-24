@@ -37,6 +37,7 @@ export default function Admin(props) {
 		}
 		setOpenAlert(false);
 		setSyncAnnulee(false);
+		setSyncErreur("");
 	};
 	const navigate = useNavigate();
 
@@ -44,8 +45,12 @@ export default function Admin(props) {
 		setFrmOuvert(true);
 	}
 
+	const userCancelRef = useRef(false);
+	const [syncErreur, setSyncErreur] = useState("");
+
 	function annulerSynchronisation() {
 		// Signal PHP to stop between chunks, then abort the stream reader.
+		userCancelRef.current = true;
 		fetch(props.URI + "/admin/importer/saq", {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -55,6 +60,7 @@ export default function Admin(props) {
 		setOpenAlertLoading(false);
 		setSyncActif(false);
 		setSyncAnnulee(true);
+		setSyncErreur("");
 		setOpenAlert(true);
 		setCycleImportation(0);
 		setNbBouteillesSaq(0);
@@ -69,12 +75,16 @@ export default function Admin(props) {
 		}
 
 		syncEnCours.current = true;
+		userCancelRef.current = false;
 		const controller = new AbortController();
 		abortRef.current = controller;
+		let finishedOk = false;
+		let serverCancelled = false;
 
 		(async () => {
 			try {
 				setSyncAnnulee(false);
+				setSyncErreur("");
 				setCycleImportation(0);
 				setNbBouteillesSaq(0);
 				setSyncDoneCount(0);
@@ -143,6 +153,7 @@ export default function Admin(props) {
 						}
 
 						if (event.type === "done") {
+							finishedOk = true;
 							setCycleImportation(100);
 							setSyncMessage("Synchronisation terminée");
 							setOpenAlertLoading(false);
@@ -150,6 +161,7 @@ export default function Admin(props) {
 							setNbBouteillesSaq(0);
 							setPrevGo(false);
 						} else if (event.type === "cancelled") {
+							serverCancelled = true;
 							setSyncAnnulee(true);
 							setOpenAlertLoading(false);
 							setOpenAlert(true);
@@ -158,16 +170,31 @@ export default function Admin(props) {
 						}
 					}
 				}
+
+				if (!finishedOk && !serverCancelled && !userCancelRef.current) {
+					throw new Error(
+						"Connexion interrompue pendant la synchronisation. Réessayez — l’import peut reprendre."
+					);
+				}
 			} catch (error) {
 				if (error?.name === "AbortError") {
-					setSyncAnnulee(true);
+					if (userCancelRef.current) {
+						setSyncAnnulee(true);
+						setOpenAlert(true);
+					}
 					setOpenAlertLoading(false);
-					setOpenAlert(true);
 					return;
 				}
 				console.error("Error fetching data: ", error);
 				props.setError?.(error);
+				setSyncAnnulee(false);
+				setSyncErreur(
+					error?.message
+						? String(error.message)
+						: "Erreur de synchronisation"
+				);
 				setOpenAlertLoading(false);
+				setOpenAlert(true);
 			} finally {
 				syncEnCours.current = false;
 				setSyncActif(false);
@@ -214,7 +241,6 @@ export default function Admin(props) {
 						</div>
 					</div>
 					<Snackbar
-						sx={{ height: "100%" }}
 						anchorOrigin={{
 							vertical: "top",
 							horizontal: "center",
@@ -225,7 +251,9 @@ export default function Admin(props) {
 					>
 						<Alert
 							onClose={handleCloseAlert}
-							severity={syncAnnulee ? "warning" : "success"}
+							severity={
+								syncErreur ? "error" : syncAnnulee ? "warning" : "success"
+							}
 							sx={[
 								{
 									width: "100%",
@@ -234,9 +262,11 @@ export default function Admin(props) {
 								},
 							]}
 						>
-							{syncAnnulee
-								? "Synchronisation SAQ annulée."
-								: "La synchronisation avec la base de données de la SAQ a été faite avec succès!"}
+							{syncErreur
+								? `Erreur de synchronisation : ${syncErreur}`
+								: syncAnnulee
+									? "Synchronisation SAQ annulée."
+									: "La synchronisation avec la base de données de la SAQ a été faite avec succès!"}
 						</Alert>
 					</Snackbar>
 					<Dialog
