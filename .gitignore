@@ -54,6 +54,7 @@ apps/monvino/database/*
 !apps/monvino/database/monvino-starter.sql
 !apps/monvino/database/monvino-perf-indexes.sql
 !apps/monvino/database/README.md
+!apps/monvino/database/.htaccess
 
 # --- Local deploy config (host/user only; never commit secrets) ---
 deploy.env
